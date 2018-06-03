@@ -1,6 +1,6 @@
 import XCTest
 
-import DataLoaderTests
+import SwiftDataLoaderTests
 
 var tests = [XCTestCaseEntry]()
 tests += DataLoaderTests.allTests()
