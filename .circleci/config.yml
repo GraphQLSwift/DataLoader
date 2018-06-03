@@ -8,7 +8,7 @@ workflows:
 jobs:
   MacOS:
     macos:
-      xcode: "9.3"
+      xcode: "9.3.0"
     steps:
       - checkout
       - restore_cache:
