@@ -362,7 +362,7 @@ final class DataLoaderTests: XCTestCase {
         XCTAssertTrue(loadCalls == [["B"]])
     }
 
-    static var allTests = [
+    static var allTests: [(String, (DataLoaderTests) -> () throws -> Void)] = [
         ("testRealyRealySimpleDataLoader", testReallyReallySimpleDataLoader),
         ("testLoadingMultipleKeys", testLoadingMultipleKeys),
         ("testMultipleRequests", testMultipleRequests),

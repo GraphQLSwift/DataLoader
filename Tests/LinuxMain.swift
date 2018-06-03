@@ -1,8 +1,8 @@
 import XCTest
 
-import SwiftDataLoaderTests
+@testable import SwiftDataLoaderTests
 
-var tests = [XCTestCaseEntry]()
-tests += DataLoaderTests.allTests()
-tests += DataLoaderAbuseTests.allTests()
-XCTMain(tests)
+XCTMain([
+    testCase(DataLoaderAbuseTests.allTests),
+    testCase(DataLoaderTests.allTests)
+])

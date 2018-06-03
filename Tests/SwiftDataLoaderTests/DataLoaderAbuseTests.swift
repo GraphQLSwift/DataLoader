@@ -107,7 +107,7 @@ class DataLoaderAbuseTests: XCTestCase {
         XCTAssertTrue(try value1.wait() == 1)
     }
 
-    static var allTests = [
+    static var allTests: [(String, (DataLoaderAbuseTests) -> () throws -> Void)] = [
         ("testFuntionWithNoValues", testFuntionWithNoValues),
         ("testBatchFuntionMustPromiseAnArrayOfCorrectLength", testBatchFuntionMustPromiseAnArrayOfCorrectLength),
         ("testBatchFuntionWithSomeValues", testBatchFuntionWithSomeValues),
