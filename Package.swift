@@ -1,4 +1,4 @@
-// swift-tools-version:4.1
+// swift-tools-version:5.0
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -11,7 +11,7 @@ let package = Package(
             targets: ["SwiftDataLoader"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-nio.git", from: "1.8.0"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "1.13.2"),
     ],
     targets: [
         .target(
