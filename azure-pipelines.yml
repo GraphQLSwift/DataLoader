@@ -1,0 +1,62 @@
+trigger:
+- master
+
+jobs:
+- job: linux
+  pool:
+    vmImage: 'Ubuntu 16.04'
+  strategy:
+    maxParallel: 10
+    matrix:
+      swift420:
+        containerImage: norionomura/swift:42
+      swift421:
+        containerImage: norionomura/swift:421
+  container: $[ variables['containerImage'] ]
+  steps:
+    - script: swift test --parallel
+      displayName: swift test
+
+- job: Xcode
+  pool:
+    vmImage: 'macOS 10.13'
+  strategy:
+    maxParallel: 10
+    matrix:
+      xcode10:
+        DEVELOPER_DIR: /Applications/Xcode_10.app
+      xcode101:
+        DEVELOPER_DIR: /Applications/Xcode_10.1.app
+  steps:
+    - script: git submodule update --init --recursive
+      displayName: Update git submodules
+    - script: xcodebuild -version
+      displayName: xcodebuild -version
+    - script: >
+        set -o pipefail &&
+        xcodebuild -workspace SwiftLint.xcworkspace -scheme swiftlint test |
+        xcpretty -r junit -o build/reports/xcodebuild.xml
+      displayName: xcodebuild test
+    - task: PublishTestResults@2
+      inputs:
+        testRunner: JUnit
+        testResultsFiles: build/reports/**
+      condition: succeededOrFailed()
+
+- job: SwiftPM
+  pool:
+    vmImage: 'macOS 10.13'
+  strategy:
+    maxParallel: 10
+    matrix:
+      xcode10:
+        DEVELOPER_DIR: /Applications/Xcode_10.app
+      xcode101:
+        DEVELOPER_DIR: /Applications/Xcode_10.1.app
+  steps:
+    - script: xcodebuild -version
+      displayName: xcodebuild -version
+    - script: >
+        set -o pipefail &&
+        swift test --parallel
+      displayName: swift test
