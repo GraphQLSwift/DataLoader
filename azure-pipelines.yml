@@ -34,7 +34,7 @@ jobs:
       displayName: xcodebuild -version
     - script: >
         set -o pipefail &&
-        xcodebuild -project SwiftDataLoader.xcworkspace -scheme swiftlint test |
+        xcodebuild -project SwiftDataLoader.xcodeproj -scheme swiftlint test |
         xcpretty -r junit -o build/reports/xcodebuild.xml
       displayName: xcodebuild test
     - task: PublishTestResults@2
