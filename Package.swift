@@ -9,11 +9,11 @@ let package = Package(
         .library(name: "SwiftDataLoader", targets: ["SwiftDataLoader"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-nio.git", from: "1.13.2"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.0.0"),
     ],
     targets: [
         .target(name: "SwiftDataLoader", dependencies: ["NIO"]),
         .testTarget(name: "SwiftDataLoaderTests", dependencies: ["SwiftDataLoader"]),
     ],
-    swiftLanguageVersions: [.v3, .v4, .v4_2, .version("5")]
+    swiftLanguageVersions: [.v4, .v4_2, .v5]
 )
