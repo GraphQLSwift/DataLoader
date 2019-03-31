@@ -28,13 +28,13 @@ jobs:
       xcode101:
         DEVELOPER_DIR: /Applications/Xcode_10.1.app
   steps:
-    - script: git submodule update --init --recursive
-      displayName: Update git submodules
+    - script: swift package generate-xcodeproj
+      displayName: Generate Xcode project file
     - script: xcodebuild -version
       displayName: xcodebuild -version
     - script: >
         set -o pipefail &&
-        xcodebuild -workspace SwiftLint.xcworkspace -scheme swiftlint test |
+        xcodebuild -project SwiftLint.xcworkspace -scheme swiftlint test |
         xcpretty -r junit -o build/reports/xcodebuild.xml
       displayName: xcodebuild test
     - task: PublishTestResults@2
