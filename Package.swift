@@ -14,5 +14,6 @@ let package = Package(
     targets: [
         .target(name: "SwiftDataLoader", dependencies: ["NIO"]),
         .testTarget(name: "SwiftDataLoaderTests", dependencies: ["SwiftDataLoader"]),
-    ]
+    ],
+    swiftLanguageVersions: [.v3, .v4, .v4_2, .version("5")]
 )
