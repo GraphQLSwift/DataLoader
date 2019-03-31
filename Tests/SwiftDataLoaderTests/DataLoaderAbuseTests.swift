@@ -20,7 +20,7 @@ class DataLoaderAbuseTests: XCTestCase {
         }
 
         let identityLoader = DataLoader<Int, Int>(options: DataLoaderOptions(batchingEnabled: false)) { keys in
-            eventLoopGroup.next().newSucceededFuture(result: [])
+            eventLoopGroup.next().makeSucceededFuture([])
         }
 
         let value = try identityLoader.load(key: 1, on: eventLoopGroup)
@@ -37,7 +37,7 @@ class DataLoaderAbuseTests: XCTestCase {
         }
 
         let identityLoader = DataLoader<Int, Int>(options: DataLoaderOptions()) { keys in
-            eventLoopGroup.next().newSucceededFuture(result: [])
+            eventLoopGroup.next().makeSucceededFuture([])
         }
 
         let value = try identityLoader.load(key: 1, on: eventLoopGroup)
@@ -64,7 +64,7 @@ class DataLoaderAbuseTests: XCTestCase {
                 }
             }
 
-            return eventLoopGroup.next().newSucceededFuture(result: results)
+            return eventLoopGroup.next().makeSucceededFuture(results)
         }
 
         let value1 = try identityLoader.load(key: 1, on: eventLoopGroup)
@@ -94,7 +94,7 @@ class DataLoaderAbuseTests: XCTestCase {
                 }
             }
 
-            return eventLoopGroup.next().newSucceededFuture(result: results)
+            return eventLoopGroup.next().makeSucceededFuture(results)
         }
 
         let value1 = try identityLoader.load(key: 1, on: eventLoopGroup)
