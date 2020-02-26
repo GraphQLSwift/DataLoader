@@ -35,7 +35,7 @@ let future3 = try userLoader.load(key: 1, on: req)
 
 Now there is only one thing left and that is to dispathc it `try userLoader.dispatchQueue(on: req.eventLoop)`
 
-The example above will only fetch users twice because `future1 == future3`
+The example above will batch all loads into a single fetch.
 
 #### Load multiple keys
 There is also an API to load multiple keys at once
