@@ -16,7 +16,7 @@ final class DataLoaderTests: XCTestCase {
         let identityLoader = DataLoader<Int, Int>(options: DataLoaderOptions(batchingEnabled: false)) { keys in
             let results = keys.map { DataLoaderFutureValue.success($0) }
 
-            return eventLoopGroup.next().newSucceededFuture(result: results)
+            return eventLoopGroup.next().makeSucceededFuture(results)
         }
 
         let value = try identityLoader.load(key: 1, on: eventLoopGroup)
@@ -36,7 +36,7 @@ final class DataLoaderTests: XCTestCase {
         let identityLoader = DataLoader<Int, Int>() { keys in
             let results = keys.map { DataLoaderFutureValue.success($0) }
 
-            return eventLoopGroup.next().newSucceededFuture(result: results)
+            return eventLoopGroup.next().makeSucceededFuture(results)
         }
 
         let values = try identityLoader.loadMany(keys: [1, 2], on: eventLoopGroup)
@@ -63,7 +63,7 @@ final class DataLoaderTests: XCTestCase {
             loadCalls.append(keys)
             let results = keys.map { DataLoaderFutureValue.success($0) }
 
-            return eventLoopGroup.next().newSucceededFuture(result: results)
+            return eventLoopGroup.next().makeSucceededFuture(results)
         }
 
         let value1 = try identityLoader.load(key: 1, on: eventLoopGroup)
@@ -90,7 +90,7 @@ final class DataLoaderTests: XCTestCase {
             loadCalls.append(keys)
             let results = keys.map { DataLoaderFutureValue.success($0) }
 
-            return eventLoopGroup.next().newSucceededFuture(result: results)
+            return eventLoopGroup.next().makeSucceededFuture(results)
         }
 
         let value1 = try identityLoader.load(key: 1, on: eventLoopGroup)
@@ -119,7 +119,7 @@ final class DataLoaderTests: XCTestCase {
             loadCalls.append(keys)
             let results = keys.map { DataLoaderFutureValue.success($0) }
 
-            return eventLoopGroup.next().newSucceededFuture(result: results)
+            return eventLoopGroup.next().makeSucceededFuture(results)
         }
 
         let value1 = try identityLoader.load(key: 1, on: eventLoopGroup)
@@ -146,7 +146,7 @@ final class DataLoaderTests: XCTestCase {
             loadCalls.append(keys)
             let results = keys.map { DataLoaderFutureValue.success($0) }
 
-            return eventLoopGroup.next().newSucceededFuture(result: results)
+            return eventLoopGroup.next().makeSucceededFuture(results)
         }
 
         let value1 = try identityLoader.load(key: "A", on: eventLoopGroup)
@@ -193,7 +193,7 @@ final class DataLoaderTests: XCTestCase {
             loadCalls.append(keys)
             let results = keys.map { DataLoaderFutureValue.success($0) }
 
-            return eventLoopGroup.next().newSucceededFuture(result: results)
+            return eventLoopGroup.next().makeSucceededFuture(results)
         }
 
         let value1 = try identityLoader.load(key: "A", on: eventLoopGroup)
@@ -230,7 +230,7 @@ final class DataLoaderTests: XCTestCase {
             loadCalls.append(keys)
             let results = keys.map { DataLoaderFutureValue.success($0) }
 
-            return eventLoopGroup.next().newSucceededFuture(result: results)
+            return eventLoopGroup.next().makeSucceededFuture(results)
         }
 
         let value1 = try identityLoader.load(key: "A", on: eventLoopGroup)
@@ -267,7 +267,7 @@ final class DataLoaderTests: XCTestCase {
             loadCalls.append(keys)
             let results = keys.map { DataLoaderFutureValue.success($0) }
 
-            return eventLoopGroup.next().newSucceededFuture(result: results)
+            return eventLoopGroup.next().makeSucceededFuture(results)
         }
 
         _ = identityLoader.prime(key: "A", value: "A", on: eventLoopGroup)
@@ -295,7 +295,7 @@ final class DataLoaderTests: XCTestCase {
             loadCalls.append(keys)
             let results = keys.map { DataLoaderFutureValue.success($0) }
 
-            return eventLoopGroup.next().newSucceededFuture(result: results)
+            return eventLoopGroup.next().makeSucceededFuture(results)
         }
 
         _ = identityLoader.prime(key: "A", value: "X", on: eventLoopGroup)
@@ -335,7 +335,7 @@ final class DataLoaderTests: XCTestCase {
             loadCalls.append(keys)
             let results = keys.map { DataLoaderFutureValue.success($0) }
 
-            return eventLoopGroup.next().newSucceededFuture(result: results)
+            return eventLoopGroup.next().makeSucceededFuture(results)
         }
 
         _ = identityLoader.prime(key: "A", value: "X", on: eventLoopGroup)
