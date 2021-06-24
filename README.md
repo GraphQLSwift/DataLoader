@@ -8,7 +8,7 @@ This is a Swift version of the Facebook [DataLoader](https://github.com/facebook
 
 ## Installation 💻
 
-Update your `Package.swift` file.
+Include this repo in your `Package.swift` file.
 
 ```swift
 .Package(url: "https://github.com/GraphQLSwift/DataLoader.git", .upToNextMajor(from: "1.1.0"))
@@ -16,9 +16,9 @@ Update your `Package.swift` file.
 
 ## Gettings started 🚀
 ### Batching
-Batching is not an advanced feature, it's DataLoader's primary feature. 
+Batching is not an advanced feature, it's DataLoader's primary feature.
 
-Create a DataLoader by providing a batch loading function
+Create a DataLoader by providing a batch loading function:
 ```swift
 let userLoader = Dataloader<Int, User>(batchLoadFunction: { keys in
   try User.query(on: req).filter(\User.id ~~ keys).all().map { users in
@@ -26,14 +26,12 @@ let userLoader = Dataloader<Int, User>(batchLoadFunction: { keys in
   }
 })
 ```
-#### Load single key
+#### Load individual keys
 ```swift
 let future1 = try userLoader.load(key: 1, on: eventLoopGroup)
 let future2 = try userLoader.load(key: 2, on: eventLoopGroup)
 let future3 = try userLoader.load(key: 1, on: eventLoopGroup)
 ```
-
-Now there is only one thing left and that is to dispathc it `try userLoader.dispatchQueue(on: req.eventLoop)`
 
 The example above will only fetch two users, because the user with key `1` is present twice in the list. 
 
@@ -43,18 +41,42 @@ There is also a method to load multiple keys at once
 try userLoader.loadMany(keys: [1, 2, 3], on: eventLoopGroup)
 ```
 
+#### Execution
+By default, a DataLoader will wait for a short time (2ms) from the moment `load` is called to collect keys prior
+to running the `batchLoadFunction` and completing the `load` futures. This is to let keys accumulate and 
+batch into a smaller number of total requests. This amount of time is configurable using the `executionPeriod` 
+option:
+
+```swift
+let myLoader =  DataLoader<String, String>(
+    options: DataLoaderOptions(executionPeriod: .milliseconds(50)),
+    batchLoadFunction: { keys in 
+        self.someBatchLoader(keys: keys).map { DataLoaderFutureValue.success($0) }
+    }
+)
+```
+
+Longer execution periods reduce the number of total data requests, but also reduce the responsiveness of the
+`load` futures.
+
+If desired, you can manually execute the `batchLoadFunction` and complete the futures at any time, using the 
+`.execute()` method.
+
+Scheduled execution can be disabled by setting `executionPeriod` to `nil`, but be careful - you *must* call `.execute()` 
+manually in this case. Otherwise, the futures will never complete.
+
 #### Disable batching
-It is possible to disable batching `DataLoaderOptions(batchingEnabled: false)`
-It will invoke `batchLoadFunction` immediately whenever any key is loaded
+It is possible to disable batching by setting the   `batchingEnabled` option to `false`
+It will invoke the `batchLoadFunction` immediately when a key is loaded.
+
 
 ### Caching
 
-DataLoader provides a memoization cache for all loads which occur in a single
-request to your application. After `.load()` is called once with a given key,
-the resulting value is cached to eliminate redundant loads.
+DataLoader provides a memoization cache. After `.load()` is called with a key, the resulting value is cached 
+for the lifetime of the DataLoader object. This eliminates redundant loads.
 
-In addition to relieving pressure on your data storage, caching results per-request
-also creates fewer objects which may relieve memory pressure on your application:
+In addition to relieving pressure on your data storage, caching results also creates fewer objects which may 
+relieve memory pressure on your application:
 
 ```swift
 let userLoader = DataLoader<Int, Int>(...)
@@ -164,16 +186,20 @@ let myLoader = DataLoader<String, String>(batchLoadFunction: { keys in
 
 ## Contributing 🤘
 
-All your feedback and help to improve this project is very welcome. Please create issues for your bugs, ideas and enhancement requests, or better yet, contribute directly by creating a PR. 😎
+All your feedback and help to improve this project is very welcome. Please create issues for your bugs, ideas and
+enhancement requests, or better yet, contribute directly by creating a PR. 😎
 
-When reporting an issue, please add a detailed instruction, and if possible a code snippet or test that can be used as a reproducer of your problem. 💥
+When reporting an issue, please add a detailed instruction, and if possible a code snippet or test that can be used
+as a reproducer of your problem. 💥
 
-When creating a pull request, please adhere to the current coding style where possible, and create tests with your code so it keeps providing an awesome test coverage level 💪
+When creating a pull request, please adhere to the current coding style where possible, and create tests with your
+code so it keeps providing an awesome test coverage level 💪
 
 ## Acknowledgements 👏
 
-This library is entirely a Swift version of Facebooks [DataLoader](https://github.com/facebook/dataloader). Developed by  [Lee Byron](https://github.com/leebyron) and
-[Nicholas Schrock](https://github.com/schrockn) from [Facebook](https://www.facebook.com/).
+This library is entirely a Swift version of Facebooks [DataLoader](https://github.com/facebook/dataloader). 
+Developed by  [Lee Byron](https://github.com/leebyron) and [Nicholas Schrock](https://github.com/schrockn) 
+from [Facebook](https://www.facebook.com/).
 
 [swift-badge]: https://img.shields.io/badge/Swift-5.2-orange.svg?style=flat
 [swift-url]: https://swift.org

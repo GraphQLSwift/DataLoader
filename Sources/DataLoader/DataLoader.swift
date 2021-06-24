@@ -25,6 +25,7 @@ final public class DataLoader<Key: Hashable, Value> {
     private var cache = [Key: EventLoopFuture<Value>]()
     private var queue = LoaderQueue<Key, Value>()
     
+    private var dispatchScheduled = false
     private let lock = Lock()
 
     public init(options: DataLoaderOptions<Key, Value> = DataLoaderOptions(), batchLoadFunction: @escaping BatchLoadFunction<Key, Value>) {
@@ -45,6 +46,12 @@ final public class DataLoader<Key: Hashable, Value> {
 
             if options.batchingEnabled {
                 queue.append((key: key, promise: promise))
+                if let executionPeriod = options.executionPeriod, !dispatchScheduled {
+                    eventLoopGroup.next().scheduleTask(in: executionPeriod) {
+                        try self.execute()
+                    }
+                    dispatchScheduled = true
+                }
             } else {
                 _ = try batchLoadFunction([key]).map { results  in
                     if results.isEmpty {
@@ -149,12 +156,22 @@ final public class DataLoader<Key: Hashable, Value> {
 
     /// Executes the queue of keys, completing the `EventLoopFutures`.
     ///
-    /// The client must run this manually to compete the `EventLoopFutures` of the keys.
+    /// If `executionPeriod` was provided in the options, this method is run automatically
+    /// after the specified time period. If `executionPeriod` was nil, the client must
+    /// run this manually to compete the `EventLoopFutures` of the keys.
     public func execute() throws {
+        // Take the current loader queue, replacing it with an empty queue.
         var batch = LoaderQueue<Key, Value>()
         lock.withLockVoid {
             batch = self.queue
             self.queue = []
+            if dispatchScheduled {
+                dispatchScheduled = false
+            }
+        }
+        
+        guard batch.count > 0 else {
+            return ()
         }
 
         // If a maxBatchSize was provided and the queue is longer, then segment the
@@ -194,11 +211,11 @@ final public class DataLoader<Key: Hashable, Value> {
                 }
             }
         }.recover { error in
-            self.failedDispatch(batch: batch, error: error)
+            self.failedExecution(batch: batch, error: error)
         }
     }
 
-    private func failedDispatch(batch: LoaderQueue<Key, Value>, error: Error) {
+    private func failedExecution(batch: LoaderQueue<Key, Value>, error: Error) {
         for (key, promise) in batch {
             _ = clear(key: key)
             promise.fail(error)
