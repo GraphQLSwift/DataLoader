@@ -13,8 +13,6 @@ public struct DataLoaderOptions<Key: Hashable, Value> {
     /// for every load of the same key.
     public let cachingEnabled: Bool
     
-    public let cacheMap: [Key: Value]
-    
     /// Default `nil`. Produces cache key for a given load key. Useful
     /// when objects are keys and two objects should be considered equivalent.
     public let cacheKeyFunction: ((Key) -> Key)?
@@ -22,12 +20,10 @@ public struct DataLoaderOptions<Key: Hashable, Value> {
     public init(batchingEnabled: Bool = true,
                 cachingEnabled: Bool = true,
                 maxBatchSize: Int? = nil,
-                cacheMap: [Key: Value] = [:],
                 cacheKeyFunction: ((Key) -> Key)? = nil) {
         self.batchingEnabled = batchingEnabled
         self.cachingEnabled = cachingEnabled
         self.maxBatchSize = maxBatchSize
-        self.cacheMap = cacheMap
         self.cacheKeyFunction = cacheKeyFunction
     }
 }
