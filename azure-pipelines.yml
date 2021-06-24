@@ -30,7 +30,7 @@ jobs:
       displayName: xcodebuild -version
     - script: >
         set -o pipefail &&
-        xcodebuild -project SwiftDataLoader.xcodeproj -scheme SwiftDataLoader-Package test |
+        xcodebuild -project DataLoader.xcodeproj -scheme DataLoader-Package test |
         xcpretty -r junit -o build/reports/xcodebuild.xml
       displayName: xcodebuild test
     - task: PublishTestResults@2

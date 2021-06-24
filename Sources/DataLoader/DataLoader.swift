@@ -1,9 +1,3 @@
-//
-//  DataLoader.swift
-//  App
-//
-//  Created by Kim de Vos on 01/06/2018.
-//
 import NIO
 
 public enum DataLoaderFutureValue<T> {
@@ -12,10 +6,16 @@ public enum DataLoaderFutureValue<T> {
 }
 
 public typealias BatchLoadFunction<Key, Value> = (_ keys: [Key]) throws -> EventLoopFuture<[DataLoaderFutureValue<Value>]>
-
-// Private
 private typealias LoaderQueue<Key, Value> = Array<(key: Key, promise: EventLoopPromise<Value>)>
 
+/// DataLoader creates a public API for loading data from a particular
+/// data back-end with unique keys such as the id column of a SQL table
+/// or document name in a MongoDB database, given a batch loading function.
+///
+/// Each DataLoader instance contains a unique memoized cache. Use caution
+/// when used in long-lived applications or those which serve many users
+/// with different access permissions and consider creating a new instance
+/// per data request.
 final public class DataLoader<Key: Hashable, Value> {
 
     private let batchLoadFunction: BatchLoadFunction<Key, Value>
@@ -29,8 +29,7 @@ final public class DataLoader<Key: Hashable, Value> {
         self.batchLoadFunction = batchLoadFunction
     }
 
-
-    /// Loads a key, returning a `Promise` for the value represented by that key.
+    /// Loads a key, returning an `EventLoopFuture` for the value represented by that key.
     public func load(key: Key, on eventLoop: EventLoopGroup) throws -> EventLoopFuture<Value> {
         let cacheKey = options.cacheKeyFunction?(key) ?? key
 
@@ -64,7 +63,21 @@ final public class DataLoader<Key: Hashable, Value> {
 
         return future
     }
-
+    
+    /// Loads multiple keys, promising an array of values:
+    ///
+    /// ```
+    /// let aAndB = myLoader.loadMany(keys: [ "a", "b" ], on: eventLoopGroup).wait()
+    /// ```
+    ///
+    /// This is equivalent to the more verbose:
+    ///
+    /// ```
+    /// let aAndB = [
+    ///   myLoader.load(key: "a", on: eventLoopGroup),
+    ///   myLoader.load(key: "b", on: eventLoopGroup)
+    /// ].flatten(on: eventLoopGroup).wait()
+    /// ```
     public func loadMany(keys: [Key], on eventLoop: EventLoopGroup) throws -> EventLoopFuture<[Value]> {
         guard !keys.isEmpty else { return eventLoop.next().makeSucceededFuture([]) }
 
@@ -86,18 +99,28 @@ final public class DataLoader<Key: Hashable, Value> {
 
         return promise.futureResult
     }
-
+    
+    /// Clears the value at `key` from the cache, if it exists. Returns itself for
+    /// method chaining.
+    @discardableResult
     func clear(key: Key) -> DataLoader<Key, Value> {
         let cacheKey = options.cacheKeyFunction?(key) ?? key
         futureCache.removeValue(forKey: cacheKey)
         return self
     }
-
+    
+    /// Clears the entire cache. To be used when some event results in unknown
+    /// invalidations across this particular `DataLoader`. Returns itself for
+    /// method chaining.
+    @discardableResult
     func clearAll() -> DataLoader<Key, Value> {
         futureCache.removeAll()
         return self
     }
 
+    /// Adds the provied key and value to the cache. If the key already exists, no
+    /// change is made. Returns itself for method chaining.
+    @discardableResult
     func prime(key: Key, value: Value, on eventLoop: EventLoopGroup) -> DataLoader<Key, Value> {
         let cacheKey = options.cacheKeyFunction?(key) ?? key
 
@@ -111,7 +134,25 @@ final public class DataLoader<Key: Hashable, Value> {
         return self
     }
 
-    // MARK: - Private
+    public func dispatchQueue(on eventLoop: EventLoopGroup) throws {
+        // Take the current loader queue, replacing it with an empty queue.
+        let queue = self.queue
+        self.queue = []
+
+        // If a maxBatchSize was provided and the queue is longer, then segment the
+        // queue into multiple batches, otherwise treat the queue as a single batch.
+        if let maxBatchSize = options.maxBatchSize, maxBatchSize > 0 && maxBatchSize < queue.count {
+            for i in 0...(queue.count / maxBatchSize) {
+                let startIndex = i * maxBatchSize
+                let endIndex = (i + 1) * maxBatchSize
+                let slicedQueue = queue[startIndex..<min(endIndex, queue.count)]
+                try dispatchQueueBatch(queue: Array(slicedQueue), on: eventLoop)
+            }
+        } else {
+                try dispatchQueueBatch(queue: queue, on: eventLoop)
+        }
+    }
+    
     private func dispatchQueueBatch(queue: LoaderQueue<Key, Value>, on eventLoop: EventLoopGroup) throws {
         let keys = queue.map { $0.key }
 
@@ -138,25 +179,6 @@ final public class DataLoader<Key: Hashable, Value> {
                 }
                 .recover { error in
                     self.failedDispatch(queue: queue, error: error)
-        }
-    }
-
-    public func dispatchQueue(on eventLoop: EventLoopGroup) throws {
-        // Take the current loader queue, replacing it with an empty queue.
-        let queue = self.queue
-        self.queue = []
-
-        // If a maxBatchSize was provided and the queue is longer, then segment the
-        // queue into multiple batches, otherwise treat the queue as a single batch.
-        if let maxBatchSize = options.maxBatchSize, maxBatchSize > 0 && maxBatchSize < queue.count {
-            for i in 0...(queue.count / maxBatchSize) {
-                let startIndex = i * maxBatchSize
-                let endIndex = (i + 1) * maxBatchSize
-                let slicedQueue = queue[startIndex..<min(endIndex, queue.count)]
-                try dispatchQueueBatch(queue: Array(slicedQueue), on: eventLoop)
-            }
-        } else {
-                try dispatchQueueBatch(queue: queue, on: eventLoop)
         }
     }
 
