@@ -1,19 +1,17 @@
-# SwiftDataLoader
-SwiftDataLoader is a generic utility to be used as part of your application's data fetching layer to provide a simplified and consistent API over various remote data sources such as databases or web services via batching and caching.
+# DataLoader
+DataLoader is a generic utility to be used as part of your application's data fetching layer to provide a simplified and consistent API over various remote data sources such as databases or web services via batching and caching.
 
 This is a Swift version of the Facebook [DataLoader](https://github.com/facebook/dataloader).
 
 [![Swift][swift-badge]][swift-url]
 [![License][mit-badge]][mit-url]
-[![CircleCI][circleci-badge]][circleci-uri]
-[![codecov][codecov-badge]][codecov-uri]
 
 ## Installation 💻
 
 Update your `Package.swift` file.
 
 ```swift
-.Package(url: "https://github.com/GraphQLSwift/SwiftDataLoader.git", .upToNextMajor(from: "1.1.0"))
+.Package(url: "https://github.com/GraphQLSwift/DataLoader.git", .upToNextMajor(from: "1.1.0"))
 ```
 
 ## Gettings started 🚀
@@ -182,9 +180,3 @@ This library is entirely a Swift version of Facebooks [DataLoader](https://githu
 
 [mit-badge]: https://img.shields.io/badge/License-MIT-blue.svg?style=flat
 [mit-url]: https://tldrlegal.com/license/mit-license
-
-[circleci-badge]: https://circleci.com/gh/kimdv/SwiftDataLoader.svg?style=svg
-[circleci-uri]: https://circleci.com/gh/kimdv/SwiftDataLoader
-
-[codecov-badge]: https://codecov.io/gh/kimdv/SwiftDataLoader/branch/master/graph/badge.svg
-[codecov-uri]: https://codecov.io/gh/kimdv/SwiftDataLoader

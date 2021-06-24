@@ -4,16 +4,16 @@
 import PackageDescription
 
 let package = Package(
-    name: "SwiftDataLoader",
+    name: "DataLoader",
     products: [
-        .library(name: "SwiftDataLoader", targets: ["SwiftDataLoader"]),
+        .library(name: "DataLoader", targets: ["DataLoader"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.0.0"),
     ],
     targets: [
-        .target(name: "SwiftDataLoader", dependencies: ["NIO"]),
-        .testTarget(name: "SwiftDataLoaderTests", dependencies: ["SwiftDataLoader"]),
+        .target(name: "DataLoader", dependencies: ["NIO"]),
+        .testTarget(name: "DataLoaderTests", dependencies: ["DataLoader"]),
     ],
     swiftLanguageVersions: [.v5]
 )

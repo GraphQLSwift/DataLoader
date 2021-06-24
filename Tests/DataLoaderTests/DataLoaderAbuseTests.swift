@@ -1,7 +1,7 @@
 import XCTest
 import NIO
 
-@testable import SwiftDataLoader
+@testable import DataLoader
 
 /// Provides descriptive error messages for API abuse
 class DataLoaderAbuseTests: XCTestCase {

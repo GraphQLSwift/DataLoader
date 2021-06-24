@@ -1,7 +1,7 @@
 import XCTest
 import NIO
 
-@testable import SwiftDataLoader
+@testable import DataLoader
 
 /// Primary API
 final class DataLoaderTests: XCTestCase {
