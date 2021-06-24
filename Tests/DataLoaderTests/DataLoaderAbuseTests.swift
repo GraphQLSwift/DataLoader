@@ -18,7 +18,7 @@ class DataLoaderAbuseTests: XCTestCase {
 
         let value = try identityLoader.load(key: 1, on: eventLoopGroup)
 
-        XCTAssertNoThrow(try identityLoader.dispatchQueue(on: eventLoopGroup))
+        XCTAssertNoThrow(try identityLoader.execute())
 
         XCTAssertThrowsError(try value.wait(), "Did not return value for key: 1")
     }
@@ -35,7 +35,7 @@ class DataLoaderAbuseTests: XCTestCase {
 
         let value = try identityLoader.load(key: 1, on: eventLoopGroup)
 
-        XCTAssertNoThrow(try identityLoader.dispatchQueue(on: eventLoopGroup))
+        XCTAssertNoThrow(try identityLoader.execute())
 
         XCTAssertThrowsError(try value.wait(), "The function did not return an array of the same length as the array of keys. \nKeys count: 1\nValues count: 0")
     }
@@ -63,7 +63,7 @@ class DataLoaderAbuseTests: XCTestCase {
         let value1 = try identityLoader.load(key: 1, on: eventLoopGroup)
         let value2 = try identityLoader.load(key: 2, on: eventLoopGroup)
 
-        XCTAssertNoThrow(try identityLoader.dispatchQueue(on: eventLoopGroup))
+        XCTAssertNoThrow(try identityLoader.execute())
 
         XCTAssertThrowsError(try value2.wait())
 
@@ -93,20 +93,12 @@ class DataLoaderAbuseTests: XCTestCase {
         let value1 = try identityLoader.load(key: 1, on: eventLoopGroup)
         let value2 = try identityLoader.load(key: 2, on: eventLoopGroup)
 
-        XCTAssertNoThrow(try identityLoader.dispatchQueue(on: eventLoopGroup))
+        XCTAssertNoThrow(try identityLoader.execute())
 
         XCTAssertThrowsError(try value2.wait())
 
         XCTAssertTrue(try value1.wait() == 1)
     }
-
-    static var allTests: [(String, (DataLoaderAbuseTests) -> () throws -> Void)] = [
-        ("testFuntionWithNoValues", testFuntionWithNoValues),
-        ("testBatchFuntionMustPromiseAnArrayOfCorrectLength", testBatchFuntionMustPromiseAnArrayOfCorrectLength),
-        ("testBatchFuntionWithSomeValues", testBatchFuntionWithSomeValues),
-        ("testFuntionWithSomeValues", testFuntionWithSomeValues)
-    ]
-    
 }
 
 extension String: Error { }
