@@ -1,15 +1,22 @@
-//
-//  DataLoaderOptions.swift
-//  CNIOAtomics
-//
-//  Created by Kim de Vos on 02/06/2018.
-//
-
 public struct DataLoaderOptions<Key: Hashable, Value> {
+    /// Default `true`. Set to `false` to disable batching, invoking
+    /// `batchLoadFunction` with a single load key. This is
+    /// equivalent to setting `maxBatchSize` to `1`.
     public let batchingEnabled: Bool
-    public let cachingEnabled: Bool
-    public let cacheMap: [Key: Value]
+    
+    /// Default `nil`. Limits the number of items that get passed in to the
+    /// `batchLoadFn`. May be set to `1` to disable batching.
     public let maxBatchSize: Int?
+    
+    /// Default `true`. Set to `false` to disable memoization caching, creating a
+    /// new `EventLoopFuture` and new key in the `batchLoadFunction`
+    /// for every load of the same key.
+    public let cachingEnabled: Bool
+    
+    public let cacheMap: [Key: Value]
+    
+    /// Default `nil`. Produces cache key for a given load key. Useful
+    /// when objects are keys and two objects should be considered equivalent.
     public let cacheKeyFunction: ((Key) -> Key)?
 
     public init(batchingEnabled: Bool = true,

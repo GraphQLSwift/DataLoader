@@ -361,18 +361,4 @@ final class DataLoaderTests: XCTestCase {
 
         XCTAssertTrue(loadCalls == [["B"]])
     }
-
-    static var allTests: [(String, (DataLoaderTests) -> () throws -> Void)] = [
-        ("testRealyRealySimpleDataLoader", testReallyReallySimpleDataLoader),
-        ("testLoadingMultipleKeys", testLoadingMultipleKeys),
-        ("testMultipleRequests", testMultipleRequests),
-        ("testMultipleRequestsWithMaxBatchSize", testMultipleRequestsWithMaxBatchSize),
-        ("testCoalescesIdenticalRequests", testCoalescesIdenticalRequests),
-        ("testCachesRepeatedRequests", testCachesRepeatedRequests),
-        ("testClearSingleValueLoader", testClearSingleValueLoader),
-        ("testClearsAllValuesInLoader", testClearsAllValuesInLoader),
-        ("testAllowsPrimingTheCache", testAllowsPrimingTheCache),
-        ("testDoesNotPrimeKeysThatAlreadyExist", testDoesNotPrimeKeysThatAlreadyExist),
-        ("testAllowsForcefullyPrimingTheCache", testAllowsForcefullyPrimingTheCache)
-    ]
 }

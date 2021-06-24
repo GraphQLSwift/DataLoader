@@ -3,15 +3,17 @@ SwiftDataLoader is a generic utility to be used as part of your application's da
 
 This is a Swift version of the Facebook [DataLoader](https://github.com/facebook/dataloader).
 
-[![CircleCI](https://circleci.com/gh/kimdv/SwiftDataLoader.svg?style=svg)](https://circleci.com/gh/kimdv/SwiftDataLoader)
-[![codecov](https://codecov.io/gh/kimdv/SwiftDataLoader/branch/master/graph/badge.svg)](https://codecov.io/gh/kimdv/SwiftDataLoader)
+[![Swift][swift-badge]][swift-url]
+[![License][mit-badge]][mit-url]
+[![CircleCI][circleci-badge]][circleci-uri]
+[![codecov][codecov-badge]][codecov-uri]
 
 ## Installation 💻
 
 Update your `Package.swift` file.
 
 ```swift
-.Package(url: "https://github.com/kimdv/SwiftDataLoader.git", majorVersion: 1)
+.Package(url: "https://github.com/GraphQLSwift/SwiftDataLoader.git", .upToNextMajor(from: "1.1.0"))
 ```
 
 ## Gettings started 🚀
@@ -27,10 +29,10 @@ let userLoader = Dataloader<Int, User>(batchLoadFunction: { keys in
 })
 ```
 #### Load single key
-```
-let future1 = try userLoader.load(key: 1, on: req)
-let future2 = try userLoader.load(key: 2, on: req)
-let future3 = try userLoader.load(key: 1, on: req)
+```swift
+let future1 = try userLoader.load(key: 1, on: eventLoopGroup)
+let future2 = try userLoader.load(key: 2, on: eventLoopGroup)
+let future3 = try userLoader.load(key: 1, on: eventLoopGroup)
 ```
 
 Now there is only one thing left and that is to dispathc it `try userLoader.dispatchQueue(on: req.eventLoop)`
@@ -38,16 +40,16 @@ Now there is only one thing left and that is to dispathc it `try userLoader.disp
 The example above will only fetch two users, because the user with key `1` is present twice in the list. 
 
 #### Load multiple keys
-There is also an API to load multiple keys at once
-```
-try userLoader.loadMany(keys: [1, 2, 3], on: req.eventLoop)
+There is also a method to load multiple keys at once
+```swift
+try userLoader.loadMany(keys: [1, 2, 3], on: eventLoopGroup)
 ```
 
-### Disable batching
-It is also possible to disable batching `DataLoaderOptions(batchingEnabled: false)`
-It will invoke `batchLoadFunction` with a single key
+#### Disable batching
+It is possible to disable batching `DataLoaderOptions(batchingEnabled: false)`
+It will invoke `batchLoadFunction` immediately whenever any key is loaded
 
-### Chaching
+### Caching
 
 DataLoader provides a memoization cache for all loads which occur in a single
 request to your application. After `.load()` is called once with a given key,
@@ -58,8 +60,8 @@ also creates fewer objects which may relieve memory pressure on your application
 
 ```swift
 let userLoader = DataLoader<Int, Int>(...)
-let future1 = userLoader.load(1)
-let future2 = userLoader.load(1)
+let future1 = userLoader.load(key: 1, on: eventLoopGroup)
+let future2 = userLoader.load(key: 1, on: eventLoopGroup)
 assert(future1 === future2)
 ```
 
@@ -91,13 +93,13 @@ Here's a simple example using SQL UPDATE to illustrate.
 let userLoader = DataLoader<Int, Int>(...)
 
 // And a value happens to be loaded (and cached).
-userLoader.load(4)
+userLoader.load(key: 4, on: eventLoopGroup)
 
 // A mutation occurs, invalidating what might be in cache.
 sqlRun('UPDATE users WHERE id=4 SET username="zuck"').then { userLoader.clear(4) }
 
 // Later the value load is loaded again so the mutated data appears.
-userLoader.load(4)
+userLoader.load(key: 4, on: eventLoopGroup)
 
 // Request completes.
 ```
@@ -112,11 +114,11 @@ be cached to avoid frequently loading the same `Error`.
 In some circumstances you may wish to clear the cache for these individual Errors:
 
 ```swift
-userLoader.load(1).catch { error in {
+userLoader.load(key: 1, on: eventLoopGroup).catch { error in {
     if (/* determine if should clear error */) {
-        userLoader.clear(1);
-        }
-        throw error
+        userLoader.clear(key: 1);
+    }
+    throw error
 }
 ```
 
@@ -124,7 +126,7 @@ userLoader.load(1).catch { error in {
 
 In certain uncommon cases, a DataLoader which *does not* cache may be desirable.
 Calling `DataLoader(options: DataLoaderOptions(cachingEnabled: false), batchLoadFunction: batchLoadFunction)` will ensure that every
-call to `.load()` will produce a *new* Future, and requested keys will not be
+call to `.load()` will produce a *new* Future, and previously requested keys will not be
 saved in memory.
 
 However, when the memoization cache is disabled, your batch function will
@@ -135,13 +137,16 @@ for each instance of the requested key.
 For example:
 
 ```swift
-let myLoader =  DataLoader<String, String>(options: DataLoaderOptions(cachingEnabled: false), batchLoadFunction: { keys in 
-    self.someBatchLoader(keys: keys).map { DataLoaderFutureValue.success($0) }
-})
+let myLoader =  DataLoader<String, String>(
+    options: DataLoaderOptions(cachingEnabled: false),
+    batchLoadFunction: { keys in 
+        self.someBatchLoader(keys: keys).map { DataLoaderFutureValue.success($0) }
+    }
+)
 
-myLoader.load("A")
-myLoader.load("B")
-myLoader.load("A")
+myLoader.load(key: "A", on: eventLoopGroup)
+myLoader.load(key: "B", on: eventLoopGroup)
+myLoader.load(key: "A", on: eventLoopGroup)
 
 // > [ "A", "B", "A" ]
 ```
@@ -171,3 +176,15 @@ When creating a pull request, please adhere to the current coding style where po
 
 This library is entirely a Swift version of Facebooks [DataLoader](https://github.com/facebook/dataloader). Developed by  [Lee Byron](https://github.com/leebyron) and
 [Nicholas Schrock](https://github.com/schrockn) from [Facebook](https://www.facebook.com/).
+
+[swift-badge]: https://img.shields.io/badge/Swift-5.2-orange.svg?style=flat
+[swift-url]: https://swift.org
+
+[mit-badge]: https://img.shields.io/badge/License-MIT-blue.svg?style=flat
+[mit-url]: https://tldrlegal.com/license/mit-license
+
+[circleci-badge]: https://circleci.com/gh/kimdv/SwiftDataLoader.svg?style=svg
+[circleci-uri]: https://circleci.com/gh/kimdv/SwiftDataLoader
+
+[codecov-badge]: https://codecov.io/gh/kimdv/SwiftDataLoader/branch/master/graph/badge.svg
+[codecov-uri]: https://codecov.io/gh/kimdv/SwiftDataLoader

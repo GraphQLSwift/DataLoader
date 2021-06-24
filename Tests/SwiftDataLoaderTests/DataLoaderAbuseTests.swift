@@ -1,10 +1,3 @@
-//
-//  DataLoaderAbuseTests.swift
-//  DataLoaderTests
-//
-//  Created by Kim de Vos on 03/06/2018.
-//
-
 import XCTest
 import NIO
 
