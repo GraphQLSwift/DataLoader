@@ -361,4 +361,37 @@ final class DataLoaderTests: XCTestCase {
 
         XCTAssertTrue(loadCalls == [["B"]])
     }
+    
+    // Caches repeated requests, even if initiated asyncronously
+    func testCacheConcurrency() throws {
+        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
+        }
+
+        let identityLoader = DataLoader<String, String>(options: DataLoaderOptions()) { keys in
+            let results = keys.map { DataLoaderFutureValue.success($0) }
+
+            return eventLoopGroup.next().makeSucceededFuture(results)
+        }
+        
+        // Populate values from two different dispatch queues, running asynchronously
+        var value1: EventLoopFuture<String> = eventLoopGroup.next().makeSucceededFuture("")
+        var value2: EventLoopFuture<String> = eventLoopGroup.next().makeSucceededFuture("")
+        DispatchQueue.init(label: "").async {
+            value1 = try! identityLoader.load(key: "A", on: eventLoopGroup)
+        }
+        DispatchQueue.init(label: "").async {
+            value2 = try! identityLoader.load(key: "A", on: eventLoopGroup)
+        }
+        
+        // Sleep for a few ms ensure that value1 & value2 are populated before continuing
+        usleep(1000)
+        
+        XCTAssertNoThrow(try identityLoader.execute())
+        
+        // Test that the futures themselves are equal (not just the value).
+        XCTAssertEqual(value1, value2)
+    }
+
 }

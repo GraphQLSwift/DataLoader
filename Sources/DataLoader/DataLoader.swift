@@ -1,4 +1,5 @@
 import NIO
+import NIOConcurrencyHelpers
 
 public enum DataLoaderFutureValue<T> {
     case success(T)
@@ -23,6 +24,8 @@ final public class DataLoader<Key: Hashable, Value> {
 
     private var cache = [Key: EventLoopFuture<Value>]()
     private var queue = LoaderQueue<Key, Value>()
+    
+    private let lock = Lock()
 
     public init(options: DataLoaderOptions<Key, Value> = DataLoaderOptions(), batchLoadFunction: @escaping BatchLoadFunction<Key, Value>) {
         self.options = options
@@ -32,36 +35,38 @@ final public class DataLoader<Key: Hashable, Value> {
     /// Loads a key, returning an `EventLoopFuture` for the value represented by that key.
     public func load(key: Key, on eventLoopGroup: EventLoopGroup) throws -> EventLoopFuture<Value> {
         let cacheKey = options.cacheKeyFunction?(key) ?? key
+        
+        return try lock.withLock {
+            if options.cachingEnabled, let cachedFuture = cache[cacheKey] {
+                return cachedFuture
+            }
 
-        if options.cachingEnabled, let cachedFuture = cache[cacheKey] {
-            return cachedFuture
-        }
+            let promise: EventLoopPromise<Value> = eventLoopGroup.next().makePromise()
 
-        let promise: EventLoopPromise<Value> = eventLoopGroup.next().makePromise()
-
-        if options.batchingEnabled {
-            queue.append((key: key, promise: promise))
-        } else {
-            _ = try batchLoadFunction([key]).map { results  in
-                if results.isEmpty {
-                    promise.fail(DataLoaderError.noValueForKey("Did not return value for key: \(key)"))
-                } else {
-                    let result = results[0]
-                    switch result {
-                    case .success(let value): promise.succeed(value)
-                    case .failure(let error): promise.fail(error)
+            if options.batchingEnabled {
+                queue.append((key: key, promise: promise))
+            } else {
+                _ = try batchLoadFunction([key]).map { results  in
+                    if results.isEmpty {
+                        promise.fail(DataLoaderError.noValueForKey("Did not return value for key: \(key)"))
+                    } else {
+                        let result = results[0]
+                        switch result {
+                        case .success(let value): promise.succeed(value)
+                        case .failure(let error): promise.fail(error)
+                        }
                     }
                 }
             }
+
+            let future = promise.futureResult
+
+            if options.cachingEnabled {
+                cache[cacheKey] = future
+            }
+
+            return future
         }
-
-        let future = promise.futureResult
-
-        if options.cachingEnabled {
-            cache[cacheKey] = future
-        }
-
-        return future
     }
     
     /// Loads multiple keys, promising an array of values:
@@ -107,7 +112,9 @@ final public class DataLoader<Key: Hashable, Value> {
     @discardableResult
     func clear(key: Key) -> DataLoader<Key, Value> {
         let cacheKey = options.cacheKeyFunction?(key) ?? key
-        cache.removeValue(forKey: cacheKey)
+        lock.withLockVoid {
+            cache.removeValue(forKey: cacheKey)
+        }
         return self
     }
     
@@ -116,7 +123,9 @@ final public class DataLoader<Key: Hashable, Value> {
     /// method chaining.
     @discardableResult
     func clearAll() -> DataLoader<Key, Value> {
-        cache.removeAll()
+        lock.withLockVoid {
+            cache.removeAll()
+        }
         return self
     }
 
@@ -125,12 +134,14 @@ final public class DataLoader<Key: Hashable, Value> {
     @discardableResult
     func prime(key: Key, value: Value, on eventLoop: EventLoopGroup) -> DataLoader<Key, Value> {
         let cacheKey = options.cacheKeyFunction?(key) ?? key
+        
+        lock.withLockVoid {
+            if cache[cacheKey] == nil {
+                let promise: EventLoopPromise<Value> = eventLoop.next().makePromise()
+                promise.succeed(value)
 
-        if cache[cacheKey] == nil {
-            let promise: EventLoopPromise<Value> = eventLoop.next().makePromise()
-            promise.succeed(value)
-
-            cache[cacheKey] = promise.futureResult
+                cache[cacheKey] = promise.futureResult
+            }
         }
 
         return self
@@ -140,9 +151,11 @@ final public class DataLoader<Key: Hashable, Value> {
     ///
     /// The client must run this manually to compete the `EventLoopFutures` of the keys.
     public func execute() throws {
-        // Take the current loader queue, replacing it with an empty queue.
-        let batch = self.queue
-        self.queue = []
+        var batch = LoaderQueue<Key, Value>()
+        lock.withLockVoid {
+            batch = self.queue
+            self.queue = []
+        }
 
         // If a maxBatchSize was provided and the queue is longer, then segment the
         // queue into multiple batches, otherwise treat the queue as a single batch.

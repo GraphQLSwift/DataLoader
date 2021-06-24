@@ -12,7 +12,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.0.0"),
     ],
     targets: [
-        .target(name: "DataLoader", dependencies: ["NIO"]),
+        .target(name: "DataLoader", dependencies: ["NIO", "NIOConcurrencyHelpers"]),
         .testTarget(name: "DataLoaderTests", dependencies: ["DataLoader"]),
     ],
     swiftLanguageVersions: [.v5]
