@@ -17,7 +17,7 @@ Include this repo in your `Package.swift` file.
 To get started, create a DataLoader. Each DataLoader instance represents a unique cache. Typically instances are created per request when used
 within a web-server if different users can see different things.
 
-## Batching
+## Batching 🍪
 Batching is not an advanced feature, it's DataLoader's primary feature.
 
 Create a DataLoader by providing a batch loading function:
@@ -49,7 +49,7 @@ try userLoader.loadMany(keys: [1, 2, 3], on: eventLoopGroup)
 ```
 
 ### Execution
-By default, a DataLoader will wait for a short time (2ms) from the moment `load` is called to collect keys prior
+By default, a DataLoader will wait for a short time from the moment `load` is called to collect keys prior
 to running the `batchLoadFunction` and completing the `load` futures. This is to let keys accumulate and 
 batch into a smaller number of total requests. This amount of time is configurable using the `executionPeriod` 
 option:
@@ -70,15 +70,14 @@ If desired, you can manually execute the `batchLoadFunction` and complete the fu
 `.execute()` method.
 
 Scheduled execution can be disabled by setting `executionPeriod` to `nil`, but be careful - you *must* call `.execute()` 
-manually in this case. Otherwise, the futures will never complete.
+manually in this case. Otherwise, the futures will never complete!
 
 ### Disable batching
-It is possible to disable batching by setting the   `batchingEnabled` option to `false`
-It will invoke the `batchLoadFunction` immediately when a key is loaded.
+It is possible to disable batching by setting the   `batchingEnabled` option to `false`.
+In this case, the `batchLoadFunction` will be invoked immediately when a key is loaded.
 
 
-## Caching
-
+## Caching 💰
 DataLoader provides a memoization cache. After `.load()` is called with a key, the resulting value is cached 
 for the lifetime of the DataLoader object. This eliminates redundant loads.
 
@@ -89,7 +88,7 @@ relieve memory pressure on your application:
 let userLoader = DataLoader<Int, Int>(...)
 let future1 = userLoader.load(key: 1, on: eventLoopGroup)
 let future2 = userLoader.load(key: 1, on: eventLoopGroup)
-assert(future1 === future2)
+print(future1 == future2) // true
 ```
 
 ### Caching per-Request
@@ -123,7 +122,7 @@ let userLoader = DataLoader<Int, Int>(...)
 userLoader.load(key: 4, on: eventLoopGroup)
 
 // A mutation occurs, invalidating what might be in cache.
-sqlRun('UPDATE users WHERE id=4 SET username="zuck"').then { userLoader.clear(4) }
+sqlRun('UPDATE users WHERE id=4 SET username="zuck"').whenComplete { userLoader.clear(key: 4) }
 
 // Later the value load is loaded again so the mutated data appears.
 userLoader.load(key: 4, on: eventLoopGroup)
@@ -141,7 +140,7 @@ be cached to avoid frequently loading the same `Error`.
 In some circumstances you may wish to clear the cache for these individual Errors:
 
 ```swift
-userLoader.load(key: 1, on: eventLoopGroup).catch { error in {
+userLoader.load(key: 1, on: eventLoopGroup).whenFailure { error in 
     if (/* determine if should clear error */) {
         userLoader.clear(key: 1);
     }
@@ -191,7 +190,7 @@ let myLoader = DataLoader<String, String>(batchLoadFunction: { keys in
 })
 ```
 
-## Using with GraphQL
+## Using with GraphQL 🎀
 
 DataLoader pairs nicely well with [GraphQL](https://github.com/GraphQLSwift/GraphQL) and
 [Graphiti](https://github.com/GraphQLSwift/Graphiti). GraphQL fields are designed to be 
@@ -219,7 +218,7 @@ Consider the following GraphQL request:
 ```
 
 Naively, if `me`, `bestFriend` and `friends` each need to request the backend,
-there could be at most 13 database requests!
+there could be at most 12 database requests!
 
 By using DataLoader, we could batch our requests to a `User` type, and 
 only require at most 4 database requests, and possibly fewer if there are cache hits.
@@ -252,8 +251,8 @@ struct UserResolver {
 
 class UserContext {
     let database = ...
-    let userLoader = DataLoader<Int, User>() { keys in
-        return User.query(on: database).filter(\.$id ~~ keys).all().map { users in
+    let userLoader = DataLoader<Int, User>() { [unowned self] keys in
+        return User.query(on: self.database).filter(\.$id ~~ keys).all().map { users in
             keys.map { key in
                 users.first { $0.id == key }!
             }
@@ -284,8 +283,8 @@ struct UserAPI : API {
 All your feedback and help to improve this project is very welcome. Please create issues for your bugs, ideas and
 enhancement requests, or better yet, contribute directly by creating a PR. 😎
 
-When reporting an issue, please add a detailed instruction, and if possible a code snippet or test that can be used
-as a reproducer of your problem. 💥
+When reporting an issue, please add a detailed example, and if possible a code snippet or test
+to reproduce your problem. 💥
 
 When creating a pull request, please adhere to the current coding style where possible, and create tests with your
 code so it keeps providing an awesome test coverage level 💪
