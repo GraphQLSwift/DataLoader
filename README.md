@@ -6,64 +6,92 @@ This is a Swift version of the Facebook [DataLoader](https://github.com/facebook
 [![Swift][swift-badge]][swift-url]
 [![License][mit-badge]][mit-url]
 
-## Installation 💻
+## Gettings started 🚀
 
-Update your `Package.swift` file.
+Include this repo in your `Package.swift` file.
 
 ```swift
 .Package(url: "https://github.com/GraphQLSwift/DataLoader.git", .upToNextMajor(from: "1.1.0"))
 ```
 
-## Gettings started 🚀
-### Batching
-Batching is not an advanced feature, it's DataLoader's primary feature. 
+To get started, create a DataLoader. Each DataLoader instance represents a unique cache. Typically instances are created per request when used
+within a web-server if different users can see different things.
 
-Create a DataLoader by providing a batch loading function
+## Batching 🍪
+Batching is not an advanced feature, it's DataLoader's primary feature.
+
+Create a DataLoader by providing a batch loading function:
 ```swift
 let userLoader = Dataloader<Int, User>(batchLoadFunction: { keys in
   try User.query(on: req).filter(\User.id ~~ keys).all().map { users in
-    return users.map { DataLoaderFutureValue.success($0) }
+    keys.map { key in
+      DataLoaderFutureValue.success(users.filter{ $0.id == key })
+    }
   }
 })
 ```
-#### Load single key
+
+The order of the returned DataLoaderFutureValues must match the order of the keys.
+
+### Load individual keys
 ```swift
 let future1 = try userLoader.load(key: 1, on: eventLoopGroup)
 let future2 = try userLoader.load(key: 2, on: eventLoopGroup)
 let future3 = try userLoader.load(key: 1, on: eventLoopGroup)
 ```
 
-Now there is only one thing left and that is to dispathc it `try userLoader.dispatchQueue(on: req.eventLoop)`
-
 The example above will only fetch two users, because the user with key `1` is present twice in the list. 
 
-#### Load multiple keys
+### Load multiple keys
 There is also a method to load multiple keys at once
 ```swift
 try userLoader.loadMany(keys: [1, 2, 3], on: eventLoopGroup)
 ```
 
-#### Disable batching
-It is possible to disable batching `DataLoaderOptions(batchingEnabled: false)`
-It will invoke `batchLoadFunction` immediately whenever any key is loaded
+### Execution
+By default, a DataLoader will wait for a short time from the moment `load` is called to collect keys prior
+to running the `batchLoadFunction` and completing the `load` futures. This is to let keys accumulate and 
+batch into a smaller number of total requests. This amount of time is configurable using the `executionPeriod` 
+option:
 
-### Caching
+```swift
+let myLoader =  DataLoader<String, String>(
+    options: DataLoaderOptions(executionPeriod: .milliseconds(50)),
+    batchLoadFunction: { keys in 
+        self.someBatchLoader(keys: keys).map { DataLoaderFutureValue.success($0) }
+    }
+)
+```
 
-DataLoader provides a memoization cache for all loads which occur in a single
-request to your application. After `.load()` is called once with a given key,
-the resulting value is cached to eliminate redundant loads.
+Longer execution periods reduce the number of total data requests, but also reduce the responsiveness of the
+`load` futures.
 
-In addition to relieving pressure on your data storage, caching results per-request
-also creates fewer objects which may relieve memory pressure on your application:
+If desired, you can manually execute the `batchLoadFunction` and complete the futures at any time, using the 
+`.execute()` method.
+
+Scheduled execution can be disabled by setting `executionPeriod` to `nil`, but be careful - you *must* call `.execute()` 
+manually in this case. Otherwise, the futures will never complete!
+
+### Disable batching
+It is possible to disable batching by setting the   `batchingEnabled` option to `false`.
+In this case, the `batchLoadFunction` will be invoked immediately when a key is loaded.
+
+
+## Caching 💰
+DataLoader provides a memoization cache. After `.load()` is called with a key, the resulting value is cached 
+for the lifetime of the DataLoader object. This eliminates redundant loads.
+
+In addition to relieving pressure on your data storage, caching results also creates fewer objects which may 
+relieve memory pressure on your application:
 
 ```swift
 let userLoader = DataLoader<Int, Int>(...)
 let future1 = userLoader.load(key: 1, on: eventLoopGroup)
 let future2 = userLoader.load(key: 1, on: eventLoopGroup)
-assert(future1 === future2)
+print(future1 == future2) // true
 ```
 
-#### Caching per-Request
+### Caching per-Request
 
 DataLoader caching *does not* replace Redis, Memcache, or any other shared
 application-level cache. DataLoader is first and foremost a data loading mechanism,
@@ -76,7 +104,7 @@ could result in cached data incorrectly appearing in each request. Typically,
 DataLoader instances are created when a Request begins, and are not used once the
 Request ends.
 
-#### Clearing Cache
+### Clearing Cache
 
 In certain uncommon cases, clearing the request cache may be necessary.
 
@@ -94,7 +122,7 @@ let userLoader = DataLoader<Int, Int>(...)
 userLoader.load(key: 4, on: eventLoopGroup)
 
 // A mutation occurs, invalidating what might be in cache.
-sqlRun('UPDATE users WHERE id=4 SET username="zuck"').then { userLoader.clear(4) }
+sqlRun('UPDATE users WHERE id=4 SET username="zuck"').whenComplete { userLoader.clear(key: 4) }
 
 // Later the value load is loaded again so the mutated data appears.
 userLoader.load(key: 4, on: eventLoopGroup)
@@ -102,7 +130,7 @@ userLoader.load(key: 4, on: eventLoopGroup)
 // Request completes.
 ```
 
-#### Caching Errors
+### Caching Errors
 
 If a batch load fails (that is, a batch function throws or returns a DataLoaderFutureValue.failure(Error)), 
 then the requested values will not be cached. However if a batch
@@ -112,7 +140,7 @@ be cached to avoid frequently loading the same `Error`.
 In some circumstances you may wish to clear the cache for these individual Errors:
 
 ```swift
-userLoader.load(key: 1, on: eventLoopGroup).catch { error in {
+userLoader.load(key: 1, on: eventLoopGroup).whenFailure { error in 
     if (/* determine if should clear error */) {
         userLoader.clear(key: 1);
     }
@@ -120,7 +148,7 @@ userLoader.load(key: 1, on: eventLoopGroup).catch { error in {
 }
 ```
 
-#### Disabling Cache
+### Disabling Cache
 
 In certain uncommon cases, a DataLoader which *does not* cache may be desirable.
 Calling `DataLoader(options: DataLoaderOptions(cachingEnabled: false), batchLoadFunction: batchLoadFunction)` will ensure that every
@@ -162,18 +190,112 @@ let myLoader = DataLoader<String, String>(batchLoadFunction: { keys in
 })
 ```
 
+## Using with GraphQL 🎀
+
+DataLoader pairs nicely well with [GraphQL](https://github.com/GraphQLSwift/GraphQL) and
+[Graphiti](https://github.com/GraphQLSwift/Graphiti). GraphQL fields are designed to be 
+stand-alone functions. Without a caching or batching mechanism,
+it's easy for a naive GraphQL server to issue new database requests each time a
+field is resolved.
+
+Consider the following GraphQL request:
+
+```
+{
+  me {
+    name
+    bestFriend {
+      name
+    }
+    friends(first: 5) {
+      name
+      bestFriend {
+        name
+      }
+    }
+  }
+}
+```
+
+Naively, if `me`, `bestFriend` and `friends` each need to request the backend,
+there could be at most 12 database requests!
+
+By using DataLoader, we could batch our requests to a `User` type, and 
+only require at most 4 database requests, and possibly fewer if there are cache hits.
+Here's a full example using Graphiti:
+
+```swift
+struct User : Codable {
+    let id: Int
+    let name: String
+    let bestFriendID: Int
+    let friendIDs: [Int]
+    
+    func getBestFriend(context: UserContext, arguments: NoArguments, group: EventLoopGroup) throws -> EventLoopFuture<User> {
+        return try context.userLoader.load(key: user.bestFriendID, on: group)
+    }
+    
+    struct FriendArguments {
+        first: Int
+    }
+    func getFriends(context: UserContext, arguments: FriendArguments, group: EventLoopGroup) throws -> EventLoopFuture<[User]> {
+        return try context.userLoader.loadMany(keys: user.friendIDs[0..<arguments.first], on: group)
+    }
+}
+
+struct UserResolver {
+    public func me(context: UserContext, arguments: NoArguments) -> User {
+        ...
+    }
+}
+
+class UserContext {
+    let database = ...
+    let userLoader = DataLoader<Int, User>() { [unowned self] keys in
+        return User.query(on: self.database).filter(\.$id ~~ keys).all().map { users in
+            keys.map { key in
+                users.first { $0.id == key }!
+            }
+        }
+    }
+}
+
+struct UserAPI : API {
+    let resolver = UserResolver()
+    let schema = Schema<UserResolver, UserContext> {
+        Type(User.self) {
+            Field("name", at: \.content)
+            Field("bestFriend", at: \.getBestFriend, as: TypeReference<User>.self)
+            Field("friends", at: \.getFriends, as: [TypeReference<User>]?.self) {
+                Argument("first", at: .\first)
+            }
+        }
+        
+        Query {
+            Field("me", at: UserResolver.hero, as: User.self)
+        }
+    }
+}
+```
+
 ## Contributing 🤘
 
-All your feedback and help to improve this project is very welcome. Please create issues for your bugs, ideas and enhancement requests, or better yet, contribute directly by creating a PR. 😎
+All your feedback and help to improve this project is very welcome. Please create issues for your bugs, ideas and
+enhancement requests, or better yet, contribute directly by creating a PR. 😎
 
-When reporting an issue, please add a detailed instruction, and if possible a code snippet or test that can be used as a reproducer of your problem. 💥
+When reporting an issue, please add a detailed example, and if possible a code snippet or test
+to reproduce your problem. 💥
 
-When creating a pull request, please adhere to the current coding style where possible, and create tests with your code so it keeps providing an awesome test coverage level 💪
+When creating a pull request, please adhere to the current coding style where possible, and create tests with your
+code so it keeps providing an awesome test coverage level 💪
 
 ## Acknowledgements 👏
 
-This library is entirely a Swift version of Facebooks [DataLoader](https://github.com/facebook/dataloader). Developed by  [Lee Byron](https://github.com/leebyron) and
-[Nicholas Schrock](https://github.com/schrockn) from [Facebook](https://www.facebook.com/).
+This library is entirely a Swift version of Facebooks [DataLoader](https://github.com/facebook/dataloader). 
+Developed by  [Lee Byron](https://github.com/leebyron) and [Nicholas Schrock](https://github.com/schrockn) 
+from [Facebook](https://www.facebook.com/).
+
+
 
 [swift-badge]: https://img.shields.io/badge/Swift-5.2-orange.svg?style=flat
 [swift-url]: https://swift.org

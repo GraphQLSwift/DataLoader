@@ -1,4 +1,5 @@
 import NIO
+import NIOConcurrencyHelpers
 
 public enum DataLoaderFutureValue<T> {
     case success(T)
@@ -21,8 +22,11 @@ final public class DataLoader<Key: Hashable, Value> {
     private let batchLoadFunction: BatchLoadFunction<Key, Value>
     private let options: DataLoaderOptions<Key, Value>
 
-    private var futureCache = [Key: EventLoopFuture<Value>]()
+    private var cache = [Key: EventLoopFuture<Value>]()
     private var queue = LoaderQueue<Key, Value>()
+    
+    private var dispatchScheduled = false
+    private let lock = Lock()
 
     public init(options: DataLoaderOptions<Key, Value> = DataLoaderOptions(), batchLoadFunction: @escaping BatchLoadFunction<Key, Value>) {
         self.options = options
@@ -30,38 +34,46 @@ final public class DataLoader<Key: Hashable, Value> {
     }
 
     /// Loads a key, returning an `EventLoopFuture` for the value represented by that key.
-    public func load(key: Key, on eventLoop: EventLoopGroup) throws -> EventLoopFuture<Value> {
+    public func load(key: Key, on eventLoopGroup: EventLoopGroup) throws -> EventLoopFuture<Value> {
         let cacheKey = options.cacheKeyFunction?(key) ?? key
+        
+        return try lock.withLock {
+            if options.cachingEnabled, let cachedFuture = cache[cacheKey] {
+                return cachedFuture
+            }
 
-        if options.cachingEnabled, let cachedFuture = futureCache[cacheKey] {
-            return cachedFuture
-        }
+            let promise: EventLoopPromise<Value> = eventLoopGroup.next().makePromise()
 
-        let promise: EventLoopPromise<Value> = eventLoop.next().makePromise()
-
-        if options.batchingEnabled {
-            queue.append((key: key, promise: promise))
-        } else {
-            _ = try batchLoadFunction([key]).map { results  in
-                if results.isEmpty {
-                    promise.fail(DataLoaderError.noValueForKey("Did not return value for key: \(key)"))
-                } else {
-                    let result = results[0]
-                    switch result {
-                    case .success(let value): promise.succeed(value)
-                    case .failure(let error): promise.fail(error)
+            if options.batchingEnabled {
+                queue.append((key: key, promise: promise))
+                if let executionPeriod = options.executionPeriod, !dispatchScheduled {
+                    eventLoopGroup.next().scheduleTask(in: executionPeriod) {
+                        try self.execute()
+                    }
+                    dispatchScheduled = true
+                }
+            } else {
+                _ = try batchLoadFunction([key]).map { results  in
+                    if results.isEmpty {
+                        promise.fail(DataLoaderError.noValueForKey("Did not return value for key: \(key)"))
+                    } else {
+                        let result = results[0]
+                        switch result {
+                        case .success(let value): promise.succeed(value)
+                        case .failure(let error): promise.fail(error)
+                        }
                     }
                 }
             }
+
+            let future = promise.futureResult
+
+            if options.cachingEnabled {
+                cache[cacheKey] = future
+            }
+
+            return future
         }
-
-        let future = promise.futureResult
-
-        if options.cachingEnabled {
-            futureCache[cacheKey] = future
-        }
-
-        return future
     }
     
     /// Loads multiple keys, promising an array of values:
@@ -78,14 +90,16 @@ final public class DataLoader<Key: Hashable, Value> {
     ///   myLoader.load(key: "b", on: eventLoopGroup)
     /// ].flatten(on: eventLoopGroup).wait()
     /// ```
-    public func loadMany(keys: [Key], on eventLoop: EventLoopGroup) throws -> EventLoopFuture<[Value]> {
-        guard !keys.isEmpty else { return eventLoop.next().makeSucceededFuture([]) }
+    public func loadMany(keys: [Key], on eventLoopGroup: EventLoopGroup) throws -> EventLoopFuture<[Value]> {
+        guard !keys.isEmpty else {
+            return eventLoopGroup.next().makeSucceededFuture([])
+        }
 
-        let promise: EventLoopPromise<[Value]> = eventLoop.next().makePromise()
+        let promise: EventLoopPromise<[Value]> = eventLoopGroup.next().makePromise()
 
         var result = [Value]()
 
-        let futures = try keys.map { try load(key: $0, on: eventLoop) }
+        let futures = try keys.map { try load(key: $0, on: eventLoopGroup) }
 
         for future in futures {
             _ = future.map { value in
@@ -105,7 +119,9 @@ final public class DataLoader<Key: Hashable, Value> {
     @discardableResult
     func clear(key: Key) -> DataLoader<Key, Value> {
         let cacheKey = options.cacheKeyFunction?(key) ?? key
-        futureCache.removeValue(forKey: cacheKey)
+        lock.withLockVoid {
+            cache.removeValue(forKey: cacheKey)
+        }
         return self
     }
     
@@ -114,7 +130,9 @@ final public class DataLoader<Key: Hashable, Value> {
     /// method chaining.
     @discardableResult
     func clearAll() -> DataLoader<Key, Value> {
-        futureCache.removeAll()
+        lock.withLockVoid {
+            cache.removeAll()
+        }
         return self
     }
 
@@ -123,38 +141,55 @@ final public class DataLoader<Key: Hashable, Value> {
     @discardableResult
     func prime(key: Key, value: Value, on eventLoop: EventLoopGroup) -> DataLoader<Key, Value> {
         let cacheKey = options.cacheKeyFunction?(key) ?? key
+        
+        lock.withLockVoid {
+            if cache[cacheKey] == nil {
+                let promise: EventLoopPromise<Value> = eventLoop.next().makePromise()
+                promise.succeed(value)
 
-        if futureCache[cacheKey] == nil {
-            let promise: EventLoopPromise<Value> = eventLoop.next().makePromise()
-            promise.succeed(value)
-
-            futureCache[cacheKey] = promise.futureResult
+                cache[cacheKey] = promise.futureResult
+            }
         }
 
         return self
     }
 
-    public func dispatchQueue(on eventLoop: EventLoopGroup) throws {
+    /// Executes the queue of keys, completing the `EventLoopFutures`.
+    ///
+    /// If `executionPeriod` was provided in the options, this method is run automatically
+    /// after the specified time period. If `executionPeriod` was nil, the client must
+    /// run this manually to compete the `EventLoopFutures` of the keys.
+    public func execute() throws {
         // Take the current loader queue, replacing it with an empty queue.
-        let queue = self.queue
-        self.queue = []
+        var batch = LoaderQueue<Key, Value>()
+        lock.withLockVoid {
+            batch = self.queue
+            self.queue = []
+            if dispatchScheduled {
+                dispatchScheduled = false
+            }
+        }
+        
+        guard batch.count > 0 else {
+            return ()
+        }
 
         // If a maxBatchSize was provided and the queue is longer, then segment the
         // queue into multiple batches, otherwise treat the queue as a single batch.
-        if let maxBatchSize = options.maxBatchSize, maxBatchSize > 0 && maxBatchSize < queue.count {
-            for i in 0...(queue.count / maxBatchSize) {
+        if let maxBatchSize = options.maxBatchSize, maxBatchSize > 0 && maxBatchSize < batch.count {
+            for i in 0...(batch.count / maxBatchSize) {
                 let startIndex = i * maxBatchSize
                 let endIndex = (i + 1) * maxBatchSize
-                let slicedQueue = queue[startIndex..<min(endIndex, queue.count)]
-                try dispatchQueueBatch(queue: Array(slicedQueue), on: eventLoop)
+                let slicedBatch = batch[startIndex..<min(endIndex, batch.count)]
+                try executeBatch(batch: Array(slicedBatch))
             }
         } else {
-                try dispatchQueueBatch(queue: queue, on: eventLoop)
+                try executeBatch(batch: batch)
         }
     }
     
-    private func dispatchQueueBatch(queue: LoaderQueue<Key, Value>, on eventLoop: EventLoopGroup) throws {
-        let keys = queue.map { $0.key }
+    private func executeBatch(batch: LoaderQueue<Key, Value>) throws {
+        let keys = batch.map { $0.key }
 
         if keys.isEmpty {
             return
@@ -162,28 +197,26 @@ final public class DataLoader<Key: Hashable, Value> {
 
         // Step through the values, resolving or rejecting each Promise in the
         // loaded queue.
-            _ = try batchLoadFunction(keys)
-                .flatMapThrowing { values in
-                    if values.count != keys.count {
-                        throw DataLoaderError.typeError("The function did not return an array of the same length as the array of keys. \nKeys count: \(keys.count)\nValues count: \(values.count)")
-                    }
+        _ = try batchLoadFunction(keys).flatMapThrowing { values in
+            if values.count != keys.count {
+                throw DataLoaderError.typeError("The function did not return an array of the same length as the array of keys. \nKeys count: \(keys.count)\nValues count: \(values.count)")
+            }
 
-                    for entry in queue.enumerated() {
-                        let result = values[entry.offset]
+            for entry in batch.enumerated() {
+                let result = values[entry.offset]
 
-                        switch result {
-                        case .failure(let error): entry.element.promise.fail(error)
-                        case .success(let value): entry.element.promise.succeed(value)
-                        }
-                    }
+                switch result {
+                case .failure(let error): entry.element.promise.fail(error)
+                case .success(let value): entry.element.promise.succeed(value)
                 }
-                .recover { error in
-                    self.failedDispatch(queue: queue, error: error)
+            }
+        }.recover { error in
+            self.failedExecution(batch: batch, error: error)
         }
     }
 
-    private func failedDispatch(queue: LoaderQueue<Key, Value>, error: Error) {
-        queue.forEach { (key, promise) in
+    private func failedExecution(batch: LoaderQueue<Key, Value>, error: Error) {
+        for (key, promise) in batch {
             _ = clear(key: key)
             promise.fail(error)
         }
