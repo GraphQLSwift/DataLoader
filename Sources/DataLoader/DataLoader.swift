@@ -94,24 +94,8 @@ final public class DataLoader<Key: Hashable, Value> {
         guard !keys.isEmpty else {
             return eventLoopGroup.next().makeSucceededFuture([])
         }
-
-        let promise: EventLoopPromise<[Value]> = eventLoopGroup.next().makePromise()
-
-        var result = [Value]()
-
         let futures = try keys.map { try load(key: $0, on: eventLoopGroup) }
-
-        for future in futures {
-            _ = future.map { value in
-                result.append(value)
-
-                if result.count == keys.count {
-                    promise.succeed(result)
-                }
-            }
-        }
-
-        return promise.futureResult
+        return EventLoopFuture.whenAllSucceed(futures, on: eventLoopGroup.next())
     }
     
     /// Clears the value at `key` from the cache, if it exists. Returns itself for
