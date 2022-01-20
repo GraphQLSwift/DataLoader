@@ -441,4 +441,39 @@ final class DataLoaderTests: XCTestCase {
 
         XCTAssertNotNil(value)
     }
+    
+    func testErrorResult() throws {
+        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
+        }
+        
+        let loaderErrorMessage = "TEST"
+        
+        // Test throwing loader without auto-executing
+        let throwLoader = DataLoader<Int, Int>(
+            options: DataLoaderOptions(executionPeriod: nil)
+        ) { keys in
+            throw DataLoaderError.typeError(loaderErrorMessage)
+        }
+        
+        let value = try throwLoader.load(key: 1, on: eventLoopGroup)
+        XCTAssertNoThrow(try throwLoader.execute())
+        XCTAssertThrowsError(
+            try value.wait(),
+            loaderErrorMessage
+        )
+        
+        // Test throwing loader with auto-executing
+        let throwLoaderAutoExecute = DataLoader<Int, Int>(
+            options: DataLoaderOptions()
+        ) { keys in
+            throw DataLoaderError.typeError(loaderErrorMessage)
+        }
+        
+        XCTAssertThrowsError(
+            try throwLoaderAutoExecute.load(key: 1, on: eventLoopGroup).wait(),
+            loaderErrorMessage
+        )
+    }
 }

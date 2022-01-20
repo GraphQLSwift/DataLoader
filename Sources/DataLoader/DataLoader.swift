@@ -28,7 +28,10 @@ final public class DataLoader<Key: Hashable, Value> {
     private var dispatchScheduled = false
     private let lock = Lock()
 
-    public init(options: DataLoaderOptions<Key, Value> = DataLoaderOptions(), batchLoadFunction: @escaping BatchLoadFunction<Key, Value>) {
+    public init(
+        options: DataLoaderOptions<Key, Value> = DataLoaderOptions(),
+        batchLoadFunction: @escaping BatchLoadFunction<Key, Value>
+    ) {
         self.options = options
         self.batchLoadFunction = batchLoadFunction
     }
@@ -37,7 +40,7 @@ final public class DataLoader<Key: Hashable, Value> {
     public func load(key: Key, on eventLoopGroup: EventLoopGroup) throws -> EventLoopFuture<Value> {
         let cacheKey = options.cacheKeyFunction?(key) ?? key
         
-        return try lock.withLock {
+        return lock.withLock {
             if options.cachingEnabled, let cachedFuture = cache[cacheKey] {
                 return cachedFuture
             }
@@ -53,16 +56,20 @@ final public class DataLoader<Key: Hashable, Value> {
                     dispatchScheduled = true
                 }
             } else {
-                _ = try batchLoadFunction([key]).map { results  in
-                    if results.isEmpty {
-                        promise.fail(DataLoaderError.noValueForKey("Did not return value for key: \(key)"))
-                    } else {
-                        let result = results[0]
-                        switch result {
-                        case .success(let value): promise.succeed(value)
-                        case .failure(let error): promise.fail(error)
+                do {
+                    _ = try batchLoadFunction([key]).map { results  in
+                        if results.isEmpty {
+                            promise.fail(DataLoaderError.noValueForKey("Did not return value for key: \(key)"))
+                        } else {
+                            let result = results[0]
+                            switch result {
+                            case .success(let value): promise.succeed(value)
+                            case .failure(let error): promise.fail(error)
+                            }
                         }
                     }
+                } catch {
+                    promise.fail(error)
                 }
             }
 
@@ -181,20 +188,24 @@ final public class DataLoader<Key: Hashable, Value> {
 
         // Step through the values, resolving or rejecting each Promise in the
         // loaded queue.
-        _ = try batchLoadFunction(keys).flatMapThrowing { values in
-            if values.count != keys.count {
-                throw DataLoaderError.typeError("The function did not return an array of the same length as the array of keys. \nKeys count: \(keys.count)\nValues count: \(values.count)")
-            }
-
-            for entry in batch.enumerated() {
-                let result = values[entry.offset]
-
-                switch result {
-                case .failure(let error): entry.element.promise.fail(error)
-                case .success(let value): entry.element.promise.succeed(value)
+        do {
+            _ = try batchLoadFunction(keys).flatMapThrowing { values in
+                if values.count != keys.count {
+                    throw DataLoaderError.typeError("The function did not return an array of the same length as the array of keys. \nKeys count: \(keys.count)\nValues count: \(values.count)")
                 }
+
+                for entry in batch.enumerated() {
+                    let result = values[entry.offset]
+
+                    switch result {
+                    case .failure(let error): entry.element.promise.fail(error)
+                    case .success(let value): entry.element.promise.succeed(value)
+                    }
+                }
+            }.recover { error in
+                self.failedExecution(batch: batch, error: error)
             }
-        }.recover { error in
+        } catch {
             self.failedExecution(batch: batch, error: error)
         }
     }
