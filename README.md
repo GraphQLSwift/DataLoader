@@ -251,7 +251,8 @@ struct UserResolver {
 
 class UserContext {
     let database = ...
-    let userLoader = DataLoader<Int, User>() { [unowned self] keys in
+    let userLoader = DataLoader<Int, User>() { [weak self] keys in
+        guard let self = self else { throw ContextError }
         return User.query(on: self.database).filter(\.$id ~~ keys).all().map { users in
             keys.map { key in
                 users.first { $0.id == key }!
