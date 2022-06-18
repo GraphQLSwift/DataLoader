@@ -108,7 +108,7 @@ final public class DataLoader<Key: Hashable, Value> {
     /// Clears the value at `key` from the cache, if it exists. Returns itself for
     /// method chaining.
     @discardableResult
-    func clear(key: Key) -> DataLoader<Key, Value> {
+    public func clear(key: Key) -> DataLoader<Key, Value> {
         let cacheKey = options.cacheKeyFunction?(key) ?? key
         lock.withLockVoid {
             cache.removeValue(forKey: cacheKey)
@@ -120,7 +120,7 @@ final public class DataLoader<Key: Hashable, Value> {
     /// invalidations across this particular `DataLoader`. Returns itself for
     /// method chaining.
     @discardableResult
-    func clearAll() -> DataLoader<Key, Value> {
+    public func clearAll() -> DataLoader<Key, Value> {
         lock.withLockVoid {
             cache.removeAll()
         }
@@ -130,7 +130,7 @@ final public class DataLoader<Key: Hashable, Value> {
     /// Adds the provied key and value to the cache. If the key already exists, no
     /// change is made. Returns itself for method chaining.
     @discardableResult
-    func prime(key: Key, value: Value, on eventLoop: EventLoopGroup) -> DataLoader<Key, Value> {
+    public func prime(key: Key, value: Value, on eventLoop: EventLoopGroup) -> DataLoader<Key, Value> {
         let cacheKey = options.cacheKeyFunction?(key) ?? key
         
         lock.withLockVoid {
