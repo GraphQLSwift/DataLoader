@@ -109,7 +109,8 @@ final class DataLoaderAsyncTests: XCTestCase {
         XCTAssertEqual(result2, 2)
 
         let calls = await loadCalls.wrappedValue
-        XCTAssertEqual(calls, [[1,2]])
+        XCTAssertEqual(calls.count, 1)
+        XCTAssertEqual(calls.map { $0.sorted() }, [[1, 2]])
     }
 }
 
