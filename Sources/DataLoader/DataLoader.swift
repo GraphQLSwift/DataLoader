@@ -217,3 +217,51 @@ final public class DataLoader<Key: Hashable, Value> {
         }
     }
 }
+
+#if compiler(>=5.5) && canImport(_Concurrency)
+
+/// Batch load function using async await 
+public typealias ConcurrentBatchLoadFunction<Key, Value> = @Sendable (_ keys: [Key]) async throws -> [DataLoaderFutureValue<Value>]
+
+public extension DataLoader {
+    @available(macOS 12, iOS 15, watchOS 8, tvOS 15, *)
+    convenience init(
+        on eventLoop: EventLoop,
+        options: DataLoaderOptions<Key, Value> = DataLoaderOptions(),
+        throwing asyncThrowingLoadFunction: @escaping ConcurrentBatchLoadFunction<Key, Value>
+    ) {
+        self.init(options: options, batchLoadFunction: { keys in
+            let promise = eventLoop.next().makePromise(of: [DataLoaderFutureValue<Value>].self)
+            promise.completeWithTask {
+                try await asyncThrowingLoadFunction(keys)
+            }
+            return promise.futureResult
+        })
+    }
+
+    /// Asynchronously loads a key, returning the value represented by that key.
+    @available(macOS 12, iOS 15, watchOS 8, tvOS 15, *)
+    func load(key: Key, on eventLoopGroup: EventLoopGroup) async throws -> Value {
+        try await load(key: key, on: eventLoopGroup).get()
+    }
+
+    /// Asynchronously loads multiple keys, promising an array of values:
+    ///
+    /// ```
+    /// let aAndB = try await myLoader.loadMany(keys: [ "a", "b" ], on: eventLoopGroup)
+    /// ```
+    ///
+    /// This is equivalent to the more verbose:
+    ///
+    /// ```
+    /// async let a = myLoader.load(key: "a", on: eventLoopGroup)
+    /// async let b = myLoader.load(key: "b", on: eventLoopGroup)
+    /// let aAndB = try await a + b
+    /// ```
+    @available(macOS 12, iOS 15, watchOS 8, tvOS 15, *)
+    func loadMany(keys: [Key], on eventLoopGroup: EventLoopGroup) async throws -> [Value] {
+        try await loadMany(keys: keys, on: eventLoopGroup).get()
+    }
+}
+
+#endif
