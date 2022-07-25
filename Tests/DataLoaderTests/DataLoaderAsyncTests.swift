@@ -85,17 +85,24 @@ final class DataLoaderAsyncTests: XCTestCase {
             return await task.value
         }
 
-        async let value1 = identityLoader.load(key: 1, on: eventLoopGroup)
-        async let value2 = identityLoader.load(key: 2, on: eventLoopGroup)
+        // Normally async-let is a better option that using explicit Task, but the test machine fails to use async let multiple times already
+        // async let value1 = identityLoader.load(key: 1, on: eventLoopGroup)
+        // async let value2 = identityLoader.load(key: 2, on: eventLoopGroup)
+        let value1 = Task {
+            try await identityLoader.load(key: 1, on: eventLoopGroup)
+        }
+        let value2 = Task {
+            try await identityLoader.load(key: 2, on: eventLoopGroup)
+        }
         
         /// Have to wait for a split second because Tasks may not be executed before this statement
         try await Task.sleep(nanoseconds: 500_000_000)
         
         XCTAssertNoThrow(try identityLoader.execute())
         
-        let result1 = try await value1
+        let result1 = try await value1.value
         XCTAssertEqual(result1, 1)
-        let result2 = try await value2
+        let result2 = try await value2.value
         XCTAssertEqual(result2, 2)
 
         let loadCalls = await LoadCalls.shared.loadCalls
