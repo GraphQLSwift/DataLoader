@@ -5,6 +5,24 @@ import NIO
 
 #if compiler(>=5.5) && canImport(_Concurrency)
 
+@available(macOS 12, iOS 15, watchOS 8, tvOS 15, *)
+actor Concurrent<T> {
+    var wrappedValue: T
+
+    func nonmutating<Returned>(_ action: (T) throws -> Returned) async rethrows -> Returned {
+        try action(wrappedValue)
+    }
+
+    func mutating<Returned>(_ action: (inout T) throws -> Returned) async rethrows -> Returned {
+        try action(&wrappedValue)
+    }
+
+    init(_ value: T) {
+        self.wrappedValue = value
+    }
+}
+
+
 /// Primary API
 @available(macOS 12, iOS 15, watchOS 8, tvOS 15, *)
 final class DataLoaderAsyncTests: XCTestCase {
@@ -61,15 +79,7 @@ final class DataLoaderAsyncTests: XCTestCase {
             XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
         }
 
-        actor LoadCalls {
-            var loadCalls = [[Int]]()
-
-            func append(_ calls: [Int]) {
-                loadCalls.append(calls)
-            }
-
-            static let shared: LoadCalls = .init()
-        }
+        let loadCalls = Concurrent<[[Int]]>([])
 
         let identityLoader = DataLoader<Int, Int>(
             on: eventLoopGroup.next(),
@@ -78,35 +88,28 @@ final class DataLoaderAsyncTests: XCTestCase {
                 executionPeriod: nil
             )
         ) { keys in
-            await LoadCalls.shared.append(keys)
+            await loadCalls.mutating { $0.append(keys) }
             let task = Task {
                 keys.map { DataLoaderFutureValue.success($0) }
             }
             return await task.value
         }
 
-        // Normally async-let is a better option that using explicit Task, but the test machine fails to use async let multiple times already
-        // async let value1 = identityLoader.load(key: 1, on: eventLoopGroup)
-        // async let value2 = identityLoader.load(key: 2, on: eventLoopGroup)
-        let value1 = Task {
-            try await identityLoader.load(key: 1, on: eventLoopGroup)
-        }
-        let value2 = Task {
-            try await identityLoader.load(key: 2, on: eventLoopGroup)
-        }
+        async let value1 = identityLoader.load(key: 1, on: eventLoopGroup)
+        async let value2 = identityLoader.load(key: 2, on: eventLoopGroup)
         
         /// Have to wait for a split second because Tasks may not be executed before this statement
         try await Task.sleep(nanoseconds: 500_000_000)
         
         XCTAssertNoThrow(try identityLoader.execute())
         
-        let result1 = try await value1.value
+        let result1 = try await value1
         XCTAssertEqual(result1, 1)
-        let result2 = try await value2.value
+        let result2 = try await value2
         XCTAssertEqual(result2, 2)
 
-        let loadCalls = await LoadCalls.shared.loadCalls
-        XCTAssertEqual(loadCalls, [[1,2]])
+        let calls = await loadCalls.wrappedValue
+        XCTAssertEqual(calls, [[1,2]])
     }
 }
 
