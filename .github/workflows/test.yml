@@ -6,19 +6,6 @@ on:
   pull_request:
     branches: [ main ]
 jobs:
-  linux-build:
-    name: Build and test on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-    steps:
-      - uses: actions/checkout@v2
-      - uses: swift-actions/setup-swift@v1
-      - name: Build
-        run: swift build
-      - name: Run tests
-        run: swift test
   macos-build:
     name: Build and test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -34,3 +21,18 @@ jobs:
         run: swift build
       - name: Run tests
         run: swift test
+  linux-build:
+    name: Build and test ${{ matrix.swift }}  on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        swift: ["5.4", "5.5", "5.6"]
+    steps:
+      - uses: swift-actions/setup-swift@v1
+        with:
+          swift-version: ${{ matrix.swift }}
+      - uses: actions/checkout@v2
+      - name: Test
+        run: swift test
+
