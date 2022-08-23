@@ -1,11 +1,10 @@
-import XCTest
 import NIO
+import XCTest
 
 @testable import DataLoader
 
 /// Provides descriptive error messages for API abuse
 class DataLoaderAbuseTests: XCTestCase {
-
     func testFuntionWithNoValues() throws {
         let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
@@ -14,7 +13,7 @@ class DataLoaderAbuseTests: XCTestCase {
 
         let identityLoader = DataLoader<Int, Int>(
             options: DataLoaderOptions(batchingEnabled: false)
-        ) { keys in
+        ) { _ in
             eventLoopGroup.next().makeSucceededFuture([])
         }
 
@@ -29,13 +28,16 @@ class DataLoaderAbuseTests: XCTestCase {
             XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
         }
 
-        let identityLoader = DataLoader<Int, Int>() { keys in
+        let identityLoader = DataLoader<Int, Int>() { _ in
             eventLoopGroup.next().makeSucceededFuture([])
         }
 
         let value = try identityLoader.load(key: 1, on: eventLoopGroup)
 
-        XCTAssertThrowsError(try value.wait(), "The function did not return an array of the same length as the array of keys. \nKeys count: 1\nValues count: 0")
+        XCTAssertThrowsError(
+            try value.wait(),
+            "The function did not return an array of the same length as the array of keys. \nKeys count: 1\nValues count: 0"
+        )
     }
 
     func testBatchFuntionWithSomeValues() throws {
@@ -97,4 +99,4 @@ class DataLoaderAbuseTests: XCTestCase {
     }
 }
 
-extension String: Error { }
+extension String: Error {}
