@@ -290,6 +290,13 @@ to reproduce your problem. 💥
 When creating a pull request, please adhere to the current coding style where possible, and create tests with your
 code so it keeps providing an awesome test coverage level 💪
 
+This repo uses [SwiftFormat](https://github.com/nicklockwood/SwiftFormat), and includes lint checks to enforce these formatting standards.
+To format your code, install `swiftformat` and run:
+
+```bash
+swiftformat .
+```
+
 ## Acknowledgements 👏
 
 This library is entirely a Swift version of Facebooks [DataLoader](https://github.com/facebook/dataloader). 

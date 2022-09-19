@@ -1,11 +1,10 @@
-import XCTest
 import NIO
+import XCTest
 
 @testable import DataLoader
 
 /// Primary API
 final class DataLoaderTests: XCTestCase {
-
     /// Builds a really really simple data loader'
     func testReallyReallySimpleDataLoader() throws {
         let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
@@ -41,7 +40,7 @@ final class DataLoaderTests: XCTestCase {
 
         let values = try identityLoader.loadMany(keys: [1, 2], on: eventLoopGroup).wait()
 
-        XCTAssertEqual(values, [1,2])
+        XCTAssertEqual(values, [1, 2])
 
         let empty = try identityLoader.loadMany(keys: [], on: eventLoopGroup).wait()
 
@@ -71,13 +70,13 @@ final class DataLoaderTests: XCTestCase {
 
         let value1 = try identityLoader.load(key: 1, on: eventLoopGroup)
         let value2 = try identityLoader.load(key: 2, on: eventLoopGroup)
-        
+
         XCTAssertNoThrow(try identityLoader.execute())
 
         XCTAssertEqual(try value1.wait(), 1)
         XCTAssertEqual(try value2.wait(), 2)
 
-        XCTAssertEqual(loadCalls, [[1,2]])
+        XCTAssertEqual(loadCalls, [[1, 2]])
     }
 
     /// Batches multiple requests with max batch sizes
@@ -105,14 +104,14 @@ final class DataLoaderTests: XCTestCase {
         let value1 = try identityLoader.load(key: 1, on: eventLoopGroup)
         let value2 = try identityLoader.load(key: 2, on: eventLoopGroup)
         let value3 = try identityLoader.load(key: 3, on: eventLoopGroup)
-        
+
         XCTAssertNoThrow(try identityLoader.execute())
-        
+
         XCTAssertEqual(try value1.wait(), 1)
         XCTAssertEqual(try value2.wait(), 2)
         XCTAssertEqual(try value3.wait(), 3)
 
-        XCTAssertEqual(loadCalls, [[1,2], [3]])
+        XCTAssertEqual(loadCalls, [[1, 2], [3]])
     }
 
     /// Coalesces identical requests
@@ -183,7 +182,6 @@ final class DataLoaderTests: XCTestCase {
         let value5 = try identityLoader.load(key: "A", on: eventLoopGroup)
         let value6 = try identityLoader.load(key: "B", on: eventLoopGroup)
         let value7 = try identityLoader.load(key: "C", on: eventLoopGroup)
-
 
         XCTAssertNoThrow(try identityLoader.execute())
 
@@ -384,7 +382,7 @@ final class DataLoaderTests: XCTestCase {
 
         XCTAssertTrue(loadCalls == [["B"]])
     }
-    
+
     // Caches repeated requests, even if initiated asyncronously
     func testCacheConcurrency() throws {
         let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
@@ -397,22 +395,22 @@ final class DataLoaderTests: XCTestCase {
 
             return eventLoopGroup.next().makeSucceededFuture(results)
         }
-        
+
         // Populate values from two different dispatch queues, running asynchronously
         var value1: EventLoopFuture<String> = eventLoopGroup.next().makeSucceededFuture("")
         var value2: EventLoopFuture<String> = eventLoopGroup.next().makeSucceededFuture("")
-        DispatchQueue.init(label: "").async {
+        DispatchQueue(label: "").async {
             value1 = try! identityLoader.load(key: "A", on: eventLoopGroup)
         }
-        DispatchQueue.init(label: "").async {
+        DispatchQueue(label: "").async {
             value2 = try! identityLoader.load(key: "A", on: eventLoopGroup)
         }
-        
+
         // Sleep for a few ms ensure that value1 & value2 are populated before continuing
         usleep(1000)
-        
+
         XCTAssertNoThrow(try identityLoader.execute())
-        
+
         // Test that the futures themselves are equal (not just the value).
         XCTAssertEqual(value1, value2)
     }
@@ -431,7 +429,7 @@ final class DataLoaderTests: XCTestCase {
             return eventLoopGroup.next().makeSucceededFuture(results)
         }
 
-        var value: String? = nil
+        var value: String?
         _ = try identityLoader.load(key: "A", on: eventLoopGroup).map { result in
             value = result
         }
@@ -441,36 +439,36 @@ final class DataLoaderTests: XCTestCase {
 
         XCTAssertNotNil(value)
     }
-    
+
     func testErrorResult() throws {
         let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
         }
-        
+
         let loaderErrorMessage = "TEST"
-        
+
         // Test throwing loader without auto-executing
         let throwLoader = DataLoader<Int, Int>(
             options: DataLoaderOptions(executionPeriod: nil)
-        ) { keys in
+        ) { _ in
             throw DataLoaderError.typeError(loaderErrorMessage)
         }
-        
+
         let value = try throwLoader.load(key: 1, on: eventLoopGroup)
         XCTAssertNoThrow(try throwLoader.execute())
         XCTAssertThrowsError(
             try value.wait(),
             loaderErrorMessage
         )
-        
+
         // Test throwing loader with auto-executing
         let throwLoaderAutoExecute = DataLoader<Int, Int>(
             options: DataLoaderOptions()
-        ) { keys in
+        ) { _ in
             throw DataLoaderError.typeError(loaderErrorMessage)
         }
-        
+
         XCTAssertThrowsError(
             try throwLoaderAutoExecute.load(key: 1, on: eventLoopGroup).wait(),
             loaderErrorMessage
