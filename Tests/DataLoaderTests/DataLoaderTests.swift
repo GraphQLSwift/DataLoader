@@ -66,7 +66,7 @@ final class DataLoaderTests: XCTestCase {
         async let value1 = identityLoader.load(key: 1)
         async let value2 = identityLoader.load(key: 2)
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000)
 
         var didFailWithError: Error?
 
@@ -109,7 +109,7 @@ final class DataLoaderTests: XCTestCase {
         async let value2 = identityLoader.load(key: 2)
         async let value3 = identityLoader.load(key: 3)
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000)
 
         var didFailWithError: Error?
 
@@ -149,7 +149,7 @@ final class DataLoaderTests: XCTestCase {
         async let value1 = identityLoader.load(key: 1)
         async let value2 = identityLoader.load(key: 1)
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000)
 
         var didFailWithError: Error?
 
@@ -187,7 +187,7 @@ final class DataLoaderTests: XCTestCase {
         async let value1 = identityLoader.load(key: "A")
         async let value2 = identityLoader.load(key: "B")
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000)
 
         var didFailWithError: Error?
 
@@ -212,7 +212,7 @@ final class DataLoaderTests: XCTestCase {
         async let value3 = identityLoader.load(key: "A")
         async let value4 = identityLoader.load(key: "C")
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000)
 
         var didFailWithError2: Error?
 
@@ -238,7 +238,7 @@ final class DataLoaderTests: XCTestCase {
         async let value6 = identityLoader.load(key: "B")
         async let value7 = identityLoader.load(key: "C")
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000)
 
         var didFailWithError3: Error?
 
@@ -278,7 +278,7 @@ final class DataLoaderTests: XCTestCase {
         async let value1 = identityLoader.load(key: "A")
         async let value2 = identityLoader.load(key: "B")
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000)
 
         var didFailWithError: Error?
 
@@ -305,7 +305,7 @@ final class DataLoaderTests: XCTestCase {
         async let value3 = identityLoader.load(key: "A")
         async let value4 = identityLoader.load(key: "B")
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000)
 
         var didFailWithError2: Error?
 
@@ -343,7 +343,7 @@ final class DataLoaderTests: XCTestCase {
         async let value1 = identityLoader.load(key: "A")
         async let value2 = identityLoader.load(key: "B")
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000)
 
         var didFailWithError: Error?
 
@@ -370,7 +370,7 @@ final class DataLoaderTests: XCTestCase {
         async let value3 = identityLoader.load(key: "A")
         async let value4 = identityLoader.load(key: "B")
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000)
 
         var didFailWithError2: Error?
 
@@ -410,7 +410,7 @@ final class DataLoaderTests: XCTestCase {
         async let value1 = identityLoader.load(key: "A")
         async let value2 = identityLoader.load(key: "B")
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000)
 
         var didFailWithError: Error?
 
@@ -450,7 +450,7 @@ final class DataLoaderTests: XCTestCase {
         async let value1 = identityLoader.load(key: "A")
         async let value2 = identityLoader.load(key: "B")
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000)
 
         var didFailWithError: Error?
 
@@ -474,7 +474,7 @@ final class DataLoaderTests: XCTestCase {
         async let value3 = identityLoader.load(key: "A")
         async let value4 = identityLoader.load(key: "B")
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000)
 
         var didFailWithError2: Error?
 
@@ -514,7 +514,7 @@ final class DataLoaderTests: XCTestCase {
         async let value1 = identityLoader.load(key: "A")
         async let value2 = identityLoader.load(key: "B")
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000)
 
         var didFailWithError: Error?
 
@@ -538,7 +538,7 @@ final class DataLoaderTests: XCTestCase {
         async let value3 = identityLoader.load(key: "A")
         async let value4 = identityLoader.load(key: "B")
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000)
 
         var didFailWithError2: Error?
 
@@ -582,7 +582,7 @@ final class DataLoaderTests: XCTestCase {
         // Sleep for a few ms ensure that value1 & value2 are populated before continuing
         usleep(1000)
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000)
 
         var didFailWithError: Error?
 
@@ -628,7 +628,7 @@ final class DataLoaderTests: XCTestCase {
 
         async let value = throwLoader.load(key: 1)
 
-        try await Task.sleep(nanoseconds: 500_000_000)
+        try await Task.sleep(nanoseconds: 2_000_000)
 
         var didFailWithError: DataLoaderError?
 
