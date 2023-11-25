@@ -25,7 +25,6 @@ class DataLoaderAbuseTests: XCTestCase {
     }
 
     func testBatchFuntionMustPromiseAnArrayOfCorrectLength() async {
-
         let identityLoader = DataLoader<Int, Int>() { _ in
             []
         }
@@ -95,7 +94,7 @@ class DataLoaderAbuseTests: XCTestCase {
 
         async let value1 = identityLoader.load(key: 1)
         async let value2 = identityLoader.load(key: 2)
-        
+
         var didFailWithError: Error?
 
         do {

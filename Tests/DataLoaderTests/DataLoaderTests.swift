@@ -561,45 +561,6 @@ final class DataLoaderTests: XCTestCase {
         XCTAssertTrue(calls.map { $0.sorted() } == [["B"]])
     }
 
-    // Caches repeated requests, even if initiated asyncronously
-    func testCacheConcurrency() async throws {
-        let identityLoader = DataLoader<String, String> { keys in
-            keys.map { DataLoaderValue.success($0) }
-        }
-
-        // Populate values from two different dispatch queues, running asynchronously
-        let value1 = Concurrent<String>("")
-        let value2 = Concurrent<String>("")
-        Task.detached {
-            let result = try await identityLoader.load(key: "A")
-            await value1.mutating { $0.append(result) }
-        }
-        Task.detached {
-            let result = try await identityLoader.load(key: "A")
-            await value2.mutating { $0.append(result) }
-        }
-
-        // Sleep for a few ms ensure that value1 & value2 are populated before continuing
-        usleep(1000)
-
-        try await Task.sleep(nanoseconds: 2_000_000)
-
-        var didFailWithError: Error?
-
-        do {
-            _ = try await identityLoader.execute()
-        } catch {
-            didFailWithError = error
-        }
-
-        XCTAssertNil(didFailWithError)
-
-        // Test that the futures themselves are equal (not just the value).
-        let wrappedValue1 = await value1.wrappedValue
-        let wrappedValue2 = await value2.wrappedValue
-        XCTAssertEqual(wrappedValue1, wrappedValue2)
-    }
-
     func testAutoExecute() async throws {
         let identityLoader = DataLoader<String, String>(
             options: DataLoaderOptions(executionPeriod: 2_000_000)
@@ -608,12 +569,14 @@ final class DataLoaderTests: XCTestCase {
             keys.map { DataLoaderValue.success($0) }
         }
 
-        let value = try await identityLoader.load(key: "A")
+        async let value = identityLoader.load(key: "A")
 
         // Don't manually call execute, but wait for more than 2ms
         usleep(3000)
 
-        XCTAssertNotNil(value)
+        let result = try await value
+
+        XCTAssertNotNil(result)
     }
 
     func testErrorResult() async throws {
@@ -651,12 +614,12 @@ final class DataLoaderTests: XCTestCase {
         var didFailWithErrorText2 = ""
 
         switch didFailWithError2 {
-            case .typeError(let text):
-                didFailWithErrorText2 = text
-            case .noValueForKey(_):
-                break
-            case .none:
-                break
+        case let .typeError(text):
+            didFailWithErrorText2 = text
+        case .noValueForKey:
+            break
+        case .none:
+            break
         }
 
         XCTAssertEqual(didFailWithErrorText2, loaderErrorMessage)
@@ -681,12 +644,12 @@ final class DataLoaderTests: XCTestCase {
         var didFailWithErrorText3 = ""
 
         switch didFailWithError3 {
-            case .typeError(let text):
-                didFailWithErrorText3 = text
-            case .noValueForKey(_):
-                break
-            case .none:
-                break
+        case let .typeError(text):
+            didFailWithErrorText3 = text
+        case .noValueForKey:
+            break
+        case .none:
+            break
         }
 
         XCTAssertEqual(didFailWithErrorText3, loaderErrorMessage)

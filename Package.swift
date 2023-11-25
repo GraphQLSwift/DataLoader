@@ -11,7 +11,6 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-algorithms.git", from: "1.0.0"),
-        .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.0.0-beta.1"),
         .package(url: "https://github.com/adam-fowler/async-collections", from: "0.0.1"),
     ],
     targets: [
@@ -19,7 +18,6 @@ let package = Package(
             name: "DataLoader",
             dependencies: [
                 .product(name: "Algorithms", package: "swift-algorithms"),
-                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
                 .product(name: "AsyncCollections", package: "async-collections"),
             ]
         ),
