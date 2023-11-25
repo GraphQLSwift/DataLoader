@@ -1,60 +1,56 @@
-import NIO
 import XCTest
 
 @testable import DataLoader
 
+actor Concurrent<T> {
+    var wrappedValue: T
+
+    func nonmutating<Returned>(_ action: (T) throws -> Returned) async rethrows -> Returned {
+        try action(wrappedValue)
+    }
+
+    func mutating<Returned>(_ action: (inout T) throws -> Returned) async rethrows -> Returned {
+        try action(&wrappedValue)
+    }
+
+    init(_ value: T) {
+        wrappedValue = value
+    }
+}
+
 /// Primary API
 final class DataLoaderTests: XCTestCase {
     /// Builds a really really simple data loader'
-    func testReallyReallySimpleDataLoader() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
-        }
-
+    func testReallyReallySimpleDataLoader() async throws {
         let identityLoader = DataLoader<Int, Int>(
             options: DataLoaderOptions(batchingEnabled: false)
         ) { keys in
-            let results = keys.map { DataLoaderFutureValue.success($0) }
-
-            return eventLoopGroup.next().makeSucceededFuture(results)
+            keys.map { DataLoaderValue.success($0) }
         }
 
-        let value = try identityLoader.load(key: 1, on: eventLoopGroup).wait()
+        let value = try await identityLoader.load(key: 1)
 
         XCTAssertEqual(value, 1)
     }
 
     /// Supports loading multiple keys in one call
-    func testLoadingMultipleKeys() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
-        }
-
+    func testLoadingMultipleKeys() async throws {
         let identityLoader = DataLoader<Int, Int>() { keys in
-            let results = keys.map { DataLoaderFutureValue.success($0) }
-
-            return eventLoopGroup.next().makeSucceededFuture(results)
+            keys.map { DataLoaderValue.success($0) }
         }
 
-        let values = try identityLoader.loadMany(keys: [1, 2], on: eventLoopGroup).wait()
+        let values = try await identityLoader.loadMany(keys: [1, 2])
 
         XCTAssertEqual(values, [1, 2])
 
-        let empty = try identityLoader.loadMany(keys: [], on: eventLoopGroup).wait()
+        let empty = try await identityLoader.loadMany(keys: [])
 
         XCTAssertTrue(empty.isEmpty)
     }
 
     // Batches multiple requests
-    func testMultipleRequests() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
-        }
-
-        var loadCalls = [[Int]]()
+    func testMultipleRequests() async throws {
+        let loadCalls = Concurrent<[[Int]]>([])
 
         let identityLoader = DataLoader<Int, Int>(
             options: DataLoaderOptions(
@@ -62,31 +58,40 @@ final class DataLoaderTests: XCTestCase {
                 executionPeriod: nil
             )
         ) { keys in
-            loadCalls.append(keys)
-            let results = keys.map { DataLoaderFutureValue.success($0) }
+            await loadCalls.mutating { $0.append(keys) }
 
-            return eventLoopGroup.next().makeSucceededFuture(results)
+            return keys.map { DataLoaderValue.success($0) }
         }
 
-        let value1 = try identityLoader.load(key: 1, on: eventLoopGroup)
-        let value2 = try identityLoader.load(key: 2, on: eventLoopGroup)
+        async let value1 = identityLoader.load(key: 1)
+        async let value2 = identityLoader.load(key: 2)
 
-        XCTAssertNoThrow(try identityLoader.execute())
+        try await Task.sleep(nanoseconds: 500_000_000)
 
-        XCTAssertEqual(try value1.wait(), 1)
-        XCTAssertEqual(try value2.wait(), 2)
+        var didFailWithError: Error?
 
-        XCTAssertEqual(loadCalls, [[1, 2]])
+        do {
+            _ = try await identityLoader.execute()
+        } catch {
+            didFailWithError = error
+        }
+
+        XCTAssertNil(didFailWithError)
+
+        let result1 = try await value1
+        let result2 = try await value2
+
+        XCTAssertEqual(result1, 1)
+        XCTAssertEqual(result2, 2)
+
+        let calls = await loadCalls.wrappedValue
+
+        XCTAssertEqual(calls.map { $0.sorted() }, [[1, 2]])
     }
 
     /// Batches multiple requests with max batch sizes
-    func testMultipleRequestsWithMaxBatchSize() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
-        }
-
-        var loadCalls = [[Int]]()
+    func testMultipleRequestsWithMaxBatchSize() async throws {
+        let loadCalls = Concurrent<[[Int]]>([])
 
         let identityLoader = DataLoader<Int, Int>(
             options: DataLoaderOptions(
@@ -95,344 +100,515 @@ final class DataLoaderTests: XCTestCase {
                 executionPeriod: nil
             )
         ) { keys in
-            loadCalls.append(keys)
-            let results = keys.map { DataLoaderFutureValue.success($0) }
+            await loadCalls.mutating { $0.append(keys) }
 
-            return eventLoopGroup.next().makeSucceededFuture(results)
+            return keys.map { DataLoaderValue.success($0) }
         }
 
-        let value1 = try identityLoader.load(key: 1, on: eventLoopGroup)
-        let value2 = try identityLoader.load(key: 2, on: eventLoopGroup)
-        let value3 = try identityLoader.load(key: 3, on: eventLoopGroup)
+        async let value1 = identityLoader.load(key: 1)
+        async let value2 = identityLoader.load(key: 2)
+        async let value3 = identityLoader.load(key: 3)
 
-        XCTAssertNoThrow(try identityLoader.execute())
+        try await Task.sleep(nanoseconds: 500_000_000)
 
-        XCTAssertEqual(try value1.wait(), 1)
-        XCTAssertEqual(try value2.wait(), 2)
-        XCTAssertEqual(try value3.wait(), 3)
+        var didFailWithError: Error?
 
-        XCTAssertEqual(loadCalls, [[1, 2], [3]])
+        do {
+            _ = try await identityLoader.execute()
+        } catch {
+            didFailWithError = error
+        }
+
+        XCTAssertNil(didFailWithError)
+
+        let result1 = try await value1
+        let result2 = try await value2
+        let result3 = try await value3
+
+        XCTAssertEqual(result1, 1)
+        XCTAssertEqual(result2, 2)
+        XCTAssertEqual(result3, 3)
+
+        let calls = await loadCalls.wrappedValue
+
+        XCTAssertEqual(calls.map { $0.sorted() }, [[1, 2], [3]])
     }
 
     /// Coalesces identical requests
-    func testCoalescesIdenticalRequests() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
-        }
-
-        var loadCalls = [[Int]]()
+    func testCoalescesIdenticalRequests() async throws {
+        let loadCalls = Concurrent<[[Int]]>([])
 
         let identityLoader = DataLoader<Int, Int>(
             options: DataLoaderOptions(executionPeriod: nil)
         ) { keys in
-            loadCalls.append(keys)
-            let results = keys.map { DataLoaderFutureValue.success($0) }
+            await loadCalls.mutating { $0.append(keys) }
 
-            return eventLoopGroup.next().makeSucceededFuture(results)
+            return keys.map { DataLoaderValue.success($0) }
         }
 
-        let value1 = try identityLoader.load(key: 1, on: eventLoopGroup)
-        let value2 = try identityLoader.load(key: 1, on: eventLoopGroup)
+        async let value1 = identityLoader.load(key: 1)
+        async let value2 = identityLoader.load(key: 1)
 
-        XCTAssertNoThrow(try identityLoader.execute())
+        try await Task.sleep(nanoseconds: 500_000_000)
 
-        XCTAssertTrue(try value1.map { $0 }.wait() == 1)
-        XCTAssertTrue(try value2.map { $0 }.wait() == 1)
+        var didFailWithError: Error?
 
-        XCTAssertTrue(loadCalls == [[1]])
+        do {
+            _ = try await identityLoader.execute()
+        } catch {
+            didFailWithError = error
+        }
+
+        XCTAssertNil(didFailWithError)
+
+        let result1 = try await value1
+        let result2 = try await value2
+
+        XCTAssertTrue(result1 == 1)
+        XCTAssertTrue(result2 == 1)
+
+        let calls = await loadCalls.wrappedValue
+
+        XCTAssertTrue(calls.map { $0.sorted() } == [[1]])
     }
 
     // Caches repeated requests
-    func testCachesRepeatedRequests() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
-        }
-
-        var loadCalls = [[String]]()
+    func testCachesRepeatedRequests() async throws {
+        let loadCalls = Concurrent<[[String]]>([])
 
         let identityLoader = DataLoader<String, String>(
             options: DataLoaderOptions(executionPeriod: nil)
         ) { keys in
-            loadCalls.append(keys)
-            let results = keys.map { DataLoaderFutureValue.success($0) }
+            await loadCalls.mutating { $0.append(keys) }
 
-            return eventLoopGroup.next().makeSucceededFuture(results)
+            return keys.map { DataLoaderValue.success($0) }
         }
 
-        let value1 = try identityLoader.load(key: "A", on: eventLoopGroup)
-        let value2 = try identityLoader.load(key: "B", on: eventLoopGroup)
+        async let value1 = identityLoader.load(key: "A")
+        async let value2 = identityLoader.load(key: "B")
 
-        XCTAssertNoThrow(try identityLoader.execute())
+        try await Task.sleep(nanoseconds: 500_000_000)
 
-        XCTAssertTrue(try value1.wait() == "A")
-        XCTAssertTrue(try value2.wait() == "B")
-        XCTAssertTrue(loadCalls == [["A", "B"]])
+        var didFailWithError: Error?
 
-        let value3 = try identityLoader.load(key: "A", on: eventLoopGroup)
-        let value4 = try identityLoader.load(key: "C", on: eventLoopGroup)
+        do {
+            _ = try await identityLoader.execute()
+        } catch {
+            didFailWithError = error
+        }
 
-        XCTAssertNoThrow(try identityLoader.execute())
+        XCTAssertNil(didFailWithError)
 
-        XCTAssertTrue(try value3.wait() == "A")
-        XCTAssertTrue(try value4.wait() == "C")
-        XCTAssertTrue(loadCalls == [["A", "B"], ["C"]])
+        let result1 = try await value1
+        let result2 = try await value2
 
-        let value5 = try identityLoader.load(key: "A", on: eventLoopGroup)
-        let value6 = try identityLoader.load(key: "B", on: eventLoopGroup)
-        let value7 = try identityLoader.load(key: "C", on: eventLoopGroup)
+        XCTAssertTrue(result1 == "A")
+        XCTAssertTrue(result2 == "B")
 
-        XCTAssertNoThrow(try identityLoader.execute())
+        let calls = await loadCalls.wrappedValue
 
-        XCTAssertTrue(try value5.wait() == "A")
-        XCTAssertTrue(try value6.wait() == "B")
-        XCTAssertTrue(try value7.wait() == "C")
-        XCTAssertTrue(loadCalls == [["A", "B"], ["C"]])
+        XCTAssertTrue(calls.map { $0.sorted() } == [["A", "B"]])
+
+        async let value3 = identityLoader.load(key: "A")
+        async let value4 = identityLoader.load(key: "C")
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        var didFailWithError2: Error?
+
+        do {
+            _ = try await identityLoader.execute()
+        } catch {
+            didFailWithError2 = error
+        }
+
+        XCTAssertNil(didFailWithError2)
+
+        let result3 = try await value3
+        let result4 = try await value4
+
+        XCTAssertTrue(result3 == "A")
+        XCTAssertTrue(result4 == "C")
+
+        let calls2 = await loadCalls.wrappedValue
+
+        XCTAssertTrue(calls2.map { $0.sorted() } == [["A", "B"], ["C"]])
+
+        async let value5 = identityLoader.load(key: "A")
+        async let value6 = identityLoader.load(key: "B")
+        async let value7 = identityLoader.load(key: "C")
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        var didFailWithError3: Error?
+
+        do {
+            _ = try await identityLoader.execute()
+        } catch {
+            didFailWithError3 = error
+        }
+
+        XCTAssertNil(didFailWithError3)
+
+        let result5 = try await value5
+        let result6 = try await value6
+        let result7 = try await value7
+
+        XCTAssertTrue(result5 == "A")
+        XCTAssertTrue(result6 == "B")
+        XCTAssertTrue(result7 == "C")
+
+        let calls3 = await loadCalls.wrappedValue
+
+        XCTAssertTrue(calls3.map { $0.sorted() } == [["A", "B"], ["C"]])
     }
 
     /// Clears single value in loader
-    func testClearSingleValueLoader() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
-        }
-
-        var loadCalls = [[String]]()
+    func testClearSingleValueLoader() async throws {
+        let loadCalls = Concurrent<[[String]]>([])
 
         let identityLoader = DataLoader<String, String>(
             options: DataLoaderOptions(executionPeriod: nil)
         ) { keys in
-            loadCalls.append(keys)
-            let results = keys.map { DataLoaderFutureValue.success($0) }
+            await loadCalls.mutating { $0.append(keys) }
 
-            return eventLoopGroup.next().makeSucceededFuture(results)
+            return keys.map { DataLoaderValue.success($0) }
         }
 
-        let value1 = try identityLoader.load(key: "A", on: eventLoopGroup)
-        let value2 = try identityLoader.load(key: "B", on: eventLoopGroup)
+        async let value1 = identityLoader.load(key: "A")
+        async let value2 = identityLoader.load(key: "B")
 
-        XCTAssertNoThrow(try identityLoader.execute())
+        try await Task.sleep(nanoseconds: 500_000_000)
 
-        XCTAssertTrue(try value1.wait() == "A")
-        XCTAssertTrue(try value2.wait() == "B")
-        XCTAssertTrue(loadCalls == [["A", "B"]])
+        var didFailWithError: Error?
 
-        _ = identityLoader.clear(key: "A")
+        do {
+            _ = try await identityLoader.execute()
+        } catch {
+            didFailWithError = error
+        }
 
-        let value3 = try identityLoader.load(key: "A", on: eventLoopGroup)
-        let value4 = try identityLoader.load(key: "B", on: eventLoopGroup)
+        XCTAssertNil(didFailWithError)
 
-        XCTAssertNoThrow(try identityLoader.execute())
+        let result1 = try await value1
+        let result2 = try await value2
 
-        XCTAssertTrue(try value3.wait() == "A")
-        XCTAssertTrue(try value4.wait() == "B")
-        XCTAssertTrue(loadCalls == [["A", "B"], ["A"]])
+        XCTAssertTrue(result1 == "A")
+        XCTAssertTrue(result2 == "B")
+
+        let calls = await loadCalls.wrappedValue
+
+        XCTAssertTrue(calls.map { $0.sorted() } == [["A", "B"]])
+
+        await identityLoader.clear(key: "A")
+
+        async let value3 = identityLoader.load(key: "A")
+        async let value4 = identityLoader.load(key: "B")
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        var didFailWithError2: Error?
+
+        do {
+            _ = try await identityLoader.execute()
+        } catch {
+            didFailWithError2 = error
+        }
+
+        XCTAssertNil(didFailWithError2)
+
+        let result3 = try await value3
+        let result4 = try await value4
+
+        XCTAssertTrue(result3 == "A")
+        XCTAssertTrue(result4 == "B")
+
+        let calls2 = await loadCalls.wrappedValue
+
+        XCTAssertTrue(calls2.map { $0.sorted() } == [["A", "B"], ["A"]])
     }
 
     /// Clears all values in loader
-    func testClearsAllValuesInLoader() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
-        }
-
-        var loadCalls = [[String]]()
+    func testClearsAllValuesInLoader() async throws {
+        let loadCalls = Concurrent<[[String]]>([])
 
         let identityLoader = DataLoader<String, String>(
             options: DataLoaderOptions(executionPeriod: nil)
         ) { keys in
-            loadCalls.append(keys)
-            let results = keys.map { DataLoaderFutureValue.success($0) }
+            await loadCalls.mutating { $0.append(keys) }
 
-            return eventLoopGroup.next().makeSucceededFuture(results)
+            return keys.map { DataLoaderValue.success($0) }
         }
 
-        let value1 = try identityLoader.load(key: "A", on: eventLoopGroup)
-        let value2 = try identityLoader.load(key: "B", on: eventLoopGroup)
+        async let value1 = identityLoader.load(key: "A")
+        async let value2 = identityLoader.load(key: "B")
 
-        XCTAssertNoThrow(try identityLoader.execute())
+        try await Task.sleep(nanoseconds: 500_000_000)
 
-        XCTAssertTrue(try value1.wait() == "A")
-        XCTAssertTrue(try value2.wait() == "B")
-        XCTAssertTrue(loadCalls == [["A", "B"]])
+        var didFailWithError: Error?
 
-        _ = identityLoader.clearAll()
+        do {
+            _ = try await identityLoader.execute()
+        } catch {
+            didFailWithError = error
+        }
 
-        let value3 = try identityLoader.load(key: "A", on: eventLoopGroup)
-        let value4 = try identityLoader.load(key: "B", on: eventLoopGroup)
+        XCTAssertNil(didFailWithError)
 
-        XCTAssertNoThrow(try identityLoader.execute())
+        let result1 = try await value1
+        let result2 = try await value2
 
-        XCTAssertTrue(try value3.wait() == "A")
-        XCTAssertTrue(try value4.wait() == "B")
-        XCTAssertTrue(loadCalls == [["A", "B"], ["A", "B"]])
+        XCTAssertTrue(result1 == "A")
+        XCTAssertTrue(result2 == "B")
+
+        let calls = await loadCalls.wrappedValue
+
+        XCTAssertTrue(calls.map { $0.sorted() } == [["A", "B"]])
+
+        await identityLoader.clearAll()
+
+        async let value3 = identityLoader.load(key: "A")
+        async let value4 = identityLoader.load(key: "B")
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        var didFailWithError2: Error?
+
+        do {
+            _ = try await identityLoader.execute()
+        } catch {
+            didFailWithError2 = error
+        }
+
+        XCTAssertNil(didFailWithError2)
+
+        let result3 = try await value3
+        let result4 = try await value4
+
+        XCTAssertTrue(result3 == "A")
+        XCTAssertTrue(result4 == "B")
+
+        let calls2 = await loadCalls.wrappedValue
+
+        XCTAssertTrue(calls2.map { $0.sorted() } == [["A", "B"], ["A", "B"]])
     }
 
     // Allows priming the cache
-    func testAllowsPrimingTheCache() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
-        }
-
-        var loadCalls = [[String]]()
+    func testAllowsPrimingTheCache() async throws {
+        let loadCalls = Concurrent<[[String]]>([])
 
         let identityLoader = DataLoader<String, String>(
             options: DataLoaderOptions(executionPeriod: nil)
         ) { keys in
-            loadCalls.append(keys)
-            let results = keys.map { DataLoaderFutureValue.success($0) }
+            await loadCalls.mutating { $0.append(keys) }
 
-            return eventLoopGroup.next().makeSucceededFuture(results)
+            return keys.map { DataLoaderValue.success($0) }
         }
 
-        _ = identityLoader.prime(key: "A", value: "A", on: eventLoopGroup)
+        try await identityLoader.prime(key: "A", value: "A")
 
-        let value1 = try identityLoader.load(key: "A", on: eventLoopGroup)
-        let value2 = try identityLoader.load(key: "B", on: eventLoopGroup)
+        async let value1 = identityLoader.load(key: "A")
+        async let value2 = identityLoader.load(key: "B")
 
-        XCTAssertNoThrow(try identityLoader.execute())
+        try await Task.sleep(nanoseconds: 500_000_000)
 
-        XCTAssertTrue(try value1.wait() == "A")
-        XCTAssertTrue(try value2.wait() == "B")
-        XCTAssertTrue(loadCalls == [["B"]])
+        var didFailWithError: Error?
+
+        do {
+            _ = try await identityLoader.execute()
+        } catch {
+            didFailWithError = error
+        }
+
+        XCTAssertNil(didFailWithError)
+
+        let result1 = try await value1
+        let result2 = try await value2
+
+        XCTAssertTrue(result1 == "A")
+        XCTAssertTrue(result2 == "B")
+
+        let calls = await loadCalls.wrappedValue
+
+        XCTAssertTrue(calls.map { $0.sorted() } == [["B"]])
     }
 
     /// Does not prime keys that already exist
-    func testDoesNotPrimeKeysThatAlreadyExist() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
-        }
-
-        var loadCalls = [[String]]()
+    func testDoesNotPrimeKeysThatAlreadyExist() async throws {
+        let loadCalls = Concurrent<[[String]]>([])
 
         let identityLoader = DataLoader<String, String>(
             options: DataLoaderOptions(executionPeriod: nil)
         ) { keys in
-            loadCalls.append(keys)
-            let results = keys.map { DataLoaderFutureValue.success($0) }
+            await loadCalls.mutating { $0.append(keys) }
 
-            return eventLoopGroup.next().makeSucceededFuture(results)
+            return keys.map { DataLoaderValue.success($0) }
         }
 
-        _ = identityLoader.prime(key: "A", value: "X", on: eventLoopGroup)
+        try await identityLoader.prime(key: "A", value: "X")
 
-        let value1 = try identityLoader.load(key: "A", on: eventLoopGroup)
-        let value2 = try identityLoader.load(key: "B", on: eventLoopGroup)
+        async let value1 = identityLoader.load(key: "A")
+        async let value2 = identityLoader.load(key: "B")
 
-        XCTAssertNoThrow(try identityLoader.execute())
+        try await Task.sleep(nanoseconds: 500_000_000)
 
-        XCTAssertTrue(try value1.wait() == "X")
-        XCTAssertTrue(try value2.wait() == "B")
+        var didFailWithError: Error?
 
-        _ = identityLoader.prime(key: "A", value: "Y", on: eventLoopGroup)
-        _ = identityLoader.prime(key: "B", value: "Y", on: eventLoopGroup)
+        do {
+            _ = try await identityLoader.execute()
+        } catch {
+            didFailWithError = error
+        }
 
-        let value3 = try identityLoader.load(key: "A", on: eventLoopGroup)
-        let value4 = try identityLoader.load(key: "B", on: eventLoopGroup)
+        XCTAssertNil(didFailWithError)
 
-        XCTAssertNoThrow(try identityLoader.execute())
+        let result1 = try await value1
+        let result2 = try await value2
 
-        XCTAssertTrue(try value3.wait() == "X")
-        XCTAssertTrue(try value4.wait() == "B")
+        XCTAssertTrue(result1 == "X")
+        XCTAssertTrue(result2 == "B")
 
-        XCTAssertTrue(loadCalls == [["B"]])
+        try await identityLoader.prime(key: "A", value: "Y")
+        try await identityLoader.prime(key: "B", value: "Y")
+
+        async let value3 = identityLoader.load(key: "A")
+        async let value4 = identityLoader.load(key: "B")
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        var didFailWithError2: Error?
+
+        do {
+            _ = try await identityLoader.execute()
+        } catch {
+            didFailWithError2 = error
+        }
+
+        XCTAssertNil(didFailWithError2)
+
+        let result3 = try await value3
+        let result4 = try await value4
+
+        XCTAssertTrue(result3 == "X")
+        XCTAssertTrue(result4 == "B")
+
+        let calls = await loadCalls.wrappedValue
+
+        XCTAssertTrue(calls.map { $0.sorted() } == [["B"]])
     }
 
     /// Allows forcefully priming the cache
-    func testAllowsForcefullyPrimingTheCache() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
-        }
-
-        var loadCalls = [[String]]()
+    func testAllowsForcefullyPrimingTheCache() async throws {
+        let loadCalls = Concurrent<[[String]]>([])
 
         let identityLoader = DataLoader<String, String>(
             options: DataLoaderOptions(executionPeriod: nil)
         ) { keys in
-            loadCalls.append(keys)
-            let results = keys.map { DataLoaderFutureValue.success($0) }
+            await loadCalls.mutating { $0.append(keys) }
 
-            return eventLoopGroup.next().makeSucceededFuture(results)
+            return keys.map { DataLoaderValue.success($0) }
         }
 
-        _ = identityLoader.prime(key: "A", value: "X", on: eventLoopGroup)
+        try await identityLoader.prime(key: "A", value: "X")
 
-        let value1 = try identityLoader.load(key: "A", on: eventLoopGroup)
-        let value2 = try identityLoader.load(key: "B", on: eventLoopGroup)
+        async let value1 = identityLoader.load(key: "A")
+        async let value2 = identityLoader.load(key: "B")
 
-        XCTAssertNoThrow(try identityLoader.execute())
+        try await Task.sleep(nanoseconds: 500_000_000)
 
-        XCTAssertTrue(try value1.wait() == "X")
-        XCTAssertTrue(try value2.wait() == "B")
+        var didFailWithError: Error?
 
-        _ = identityLoader.clear(key: "A").prime(key: "A", value: "Y", on: eventLoopGroup)
-        _ = identityLoader.clear(key: "B").prime(key: "B", value: "Y", on: eventLoopGroup)
+        do {
+            _ = try await identityLoader.execute()
+        } catch {
+            didFailWithError = error
+        }
 
-        let value3 = try identityLoader.load(key: "A", on: eventLoopGroup)
-        let value4 = try identityLoader.load(key: "B", on: eventLoopGroup)
+        XCTAssertNil(didFailWithError)
 
-        XCTAssertNoThrow(try identityLoader.execute())
+        let result1 = try await value1
+        let result2 = try await value2
 
-        XCTAssertTrue(try value3.wait() == "Y")
-        XCTAssertTrue(try value4.wait() == "Y")
+        XCTAssertTrue(result1 == "X")
+        XCTAssertTrue(result2 == "B")
 
-        XCTAssertTrue(loadCalls == [["B"]])
+        try await identityLoader.clear(key: "A").prime(key: "A", value: "Y")
+        try await identityLoader.clear(key: "B").prime(key: "B", value: "Y")
+
+        async let value3 = identityLoader.load(key: "A")
+        async let value4 = identityLoader.load(key: "B")
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        var didFailWithError2: Error?
+
+        do {
+            _ = try await identityLoader.execute()
+        } catch {
+            didFailWithError2 = error
+        }
+
+        XCTAssertNil(didFailWithError2)
+
+        let result3 = try await value3
+        let result4 = try await value4
+
+        XCTAssertTrue(result3 == "Y")
+        XCTAssertTrue(result4 == "Y")
+
+        let calls = await loadCalls.wrappedValue
+
+        XCTAssertTrue(calls.map { $0.sorted() } == [["B"]])
     }
 
     // Caches repeated requests, even if initiated asyncronously
-    func testCacheConcurrency() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
-        }
-
-        let identityLoader = DataLoader<String, String>(options: DataLoaderOptions()) { keys in
-            let results = keys.map { DataLoaderFutureValue.success($0) }
-
-            return eventLoopGroup.next().makeSucceededFuture(results)
+    func testCacheConcurrency() async throws {
+        let identityLoader = DataLoader<String, String> { keys in
+            keys.map { DataLoaderValue.success($0) }
         }
 
         // Populate values from two different dispatch queues, running asynchronously
-        var value1: EventLoopFuture<String> = eventLoopGroup.next().makeSucceededFuture("")
-        var value2: EventLoopFuture<String> = eventLoopGroup.next().makeSucceededFuture("")
-        DispatchQueue(label: "").async {
-            value1 = try! identityLoader.load(key: "A", on: eventLoopGroup)
+        let value1 = Concurrent<String>("")
+        let value2 = Concurrent<String>("")
+        Task.detached {
+            let result = try await identityLoader.load(key: "A")
+            await value1.mutating { $0.append(result) }
         }
-        DispatchQueue(label: "").async {
-            value2 = try! identityLoader.load(key: "A", on: eventLoopGroup)
+        Task.detached {
+            let result = try await identityLoader.load(key: "A")
+            await value2.mutating { $0.append(result) }
         }
 
         // Sleep for a few ms ensure that value1 & value2 are populated before continuing
         usleep(1000)
 
-        XCTAssertNoThrow(try identityLoader.execute())
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        var didFailWithError: Error?
+
+        do {
+            _ = try await identityLoader.execute()
+        } catch {
+            didFailWithError = error
+        }
+
+        XCTAssertNil(didFailWithError)
 
         // Test that the futures themselves are equal (not just the value).
-        XCTAssertEqual(value1, value2)
+        let wrappedValue1 = await value1.wrappedValue
+        let wrappedValue2 = await value2.wrappedValue
+        XCTAssertEqual(wrappedValue1, wrappedValue2)
     }
 
-    func testAutoExecute() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
-        }
-
+    func testAutoExecute() async throws {
         let identityLoader = DataLoader<String, String>(
-            options: DataLoaderOptions(executionPeriod: .milliseconds(2))
+            options: DataLoaderOptions(executionPeriod: 2_000_000)
         ) { keys in
-            let results = keys.map { DataLoaderFutureValue.success($0) }
 
-            return eventLoopGroup.next().makeSucceededFuture(results)
+            keys.map { DataLoaderValue.success($0) }
         }
 
-        var value: String?
-        _ = try identityLoader.load(key: "A", on: eventLoopGroup).map { result in
-            value = result
-        }
+        let value = try await identityLoader.load(key: "A")
 
         // Don't manually call execute, but wait for more than 2ms
         usleep(3000)
@@ -440,12 +616,7 @@ final class DataLoaderTests: XCTestCase {
         XCTAssertNotNil(value)
     }
 
-    func testErrorResult() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
-        }
-
+    func testErrorResult() async throws {
         let loaderErrorMessage = "TEST"
 
         // Test throwing loader without auto-executing
@@ -455,12 +626,40 @@ final class DataLoaderTests: XCTestCase {
             throw DataLoaderError.typeError(loaderErrorMessage)
         }
 
-        let value = try throwLoader.load(key: 1, on: eventLoopGroup)
-        XCTAssertNoThrow(try throwLoader.execute())
-        XCTAssertThrowsError(
-            try value.wait(),
-            loaderErrorMessage
-        )
+        async let value = throwLoader.load(key: 1)
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        var didFailWithError: DataLoaderError?
+
+        do {
+            _ = try await throwLoader.execute()
+        } catch {
+            didFailWithError = error as? DataLoaderError
+        }
+
+        XCTAssertNil(didFailWithError)
+
+        var didFailWithError2: DataLoaderError?
+
+        do {
+            _ = try await value
+        } catch {
+            didFailWithError2 = error as? DataLoaderError
+        }
+
+        var didFailWithErrorText2 = ""
+
+        switch didFailWithError2 {
+            case .typeError(let text):
+                didFailWithErrorText2 = text
+            case .noValueForKey(_):
+                break
+            case .none:
+                break
+        }
+
+        XCTAssertEqual(didFailWithErrorText2, loaderErrorMessage)
 
         // Test throwing loader with auto-executing
         let throwLoaderAutoExecute = DataLoader<Int, Int>(
@@ -469,9 +668,27 @@ final class DataLoaderTests: XCTestCase {
             throw DataLoaderError.typeError(loaderErrorMessage)
         }
 
-        XCTAssertThrowsError(
-            try throwLoaderAutoExecute.load(key: 1, on: eventLoopGroup).wait(),
-            loaderErrorMessage
-        )
+        async let valueAutoExecute = throwLoaderAutoExecute.load(key: 1)
+
+        var didFailWithError3: DataLoaderError?
+
+        do {
+            _ = try await valueAutoExecute
+        } catch {
+            didFailWithError3 = error as? DataLoaderError
+        }
+
+        var didFailWithErrorText3 = ""
+
+        switch didFailWithError3 {
+            case .typeError(let text):
+                didFailWithErrorText3 = text
+            case .noValueForKey(_):
+                break
+            case .none:
+                break
+        }
+
+        XCTAssertEqual(didFailWithErrorText3, loaderErrorMessage)
     }
 }

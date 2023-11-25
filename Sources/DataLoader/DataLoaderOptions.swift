@@ -1,6 +1,4 @@
-import NIO
-
-public struct DataLoaderOptions<Key: Hashable, Value> {
+public struct DataLoaderOptions<Key: Hashable, Value>: Sendable {
     /// Default `true`. Set to `false` to disable batching, invoking
     /// `batchLoadFunction` with a single load key. This is
     /// equivalent to setting `maxBatchSize` to `1`.
@@ -20,18 +18,18 @@ public struct DataLoaderOptions<Key: Hashable, Value> {
     /// in smaller batches quicker resolution, slower times result in larger
     /// batches but slower resolution.
     /// This is irrelevant if batching is disabled.
-    public let executionPeriod: TimeAmount?
+    public let executionPeriod: UInt64?
 
     /// Default `nil`. Produces cache key for a given load key. Useful
     /// when objects are keys and two objects should be considered equivalent.
-    public let cacheKeyFunction: ((Key) -> Key)?
+    public let cacheKeyFunction: (@Sendable (Key) -> Key)?
 
     public init(
         batchingEnabled: Bool = true,
         cachingEnabled: Bool = true,
         maxBatchSize: Int? = nil,
-        executionPeriod: TimeAmount? = .milliseconds(2),
-        cacheKeyFunction: ((Key) -> Key)? = nil
+        executionPeriod: UInt64? = 2_000_000,
+        cacheKeyFunction: (@Sendable (Key) -> Key)? = nil
     ) {
         self.batchingEnabled = batchingEnabled
         self.cachingEnabled = cachingEnabled

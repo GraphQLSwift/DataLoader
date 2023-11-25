@@ -1,101 +1,114 @@
-import NIO
 import XCTest
 
 @testable import DataLoader
 
 /// Provides descriptive error messages for API abuse
 class DataLoaderAbuseTests: XCTestCase {
-    func testFuntionWithNoValues() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
-        }
-
+    func testFuntionWithNoValues() async throws {
         let identityLoader = DataLoader<Int, Int>(
             options: DataLoaderOptions(batchingEnabled: false)
         ) { _ in
-            eventLoopGroup.next().makeSucceededFuture([])
+            []
         }
 
-        let value = try identityLoader.load(key: 1, on: eventLoopGroup)
+        async let value = identityLoader.load(key: 1)
 
-        XCTAssertThrowsError(try value.wait(), "Did not return value for key: 1")
+        var didFailWithError: Error?
+
+        do {
+            _ = try await value
+        } catch {
+            didFailWithError = error
+        }
+
+        XCTAssertNotNil(didFailWithError)
     }
 
-    func testBatchFuntionMustPromiseAnArrayOfCorrectLength() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
-        }
+    func testBatchFuntionMustPromiseAnArrayOfCorrectLength() async {
 
         let identityLoader = DataLoader<Int, Int>() { _ in
-            eventLoopGroup.next().makeSucceededFuture([])
+            []
         }
 
-        let value = try identityLoader.load(key: 1, on: eventLoopGroup)
+        async let value = identityLoader.load(key: 1)
 
-        XCTAssertThrowsError(
-            try value.wait(),
-            "The function did not return an array of the same length as the array of keys. \nKeys count: 1\nValues count: 0"
-        )
+        var didFailWithError: Error?
+
+        do {
+            _ = try await value
+        } catch {
+            didFailWithError = error
+        }
+
+        XCTAssertNotNil(didFailWithError)
     }
 
-    func testBatchFuntionWithSomeValues() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
-        }
-
+    func testBatchFuntionWithSomeValues() async throws {
         let identityLoader = DataLoader<Int, Int>() { keys in
-            var results = [DataLoaderFutureValue<Int>]()
+            var results = [DataLoaderValue<Int>]()
 
             for key in keys {
                 if key == 1 {
-                    results.append(DataLoaderFutureValue.success(key))
+                    results.append(.success(key))
                 } else {
-                    results.append(DataLoaderFutureValue.failure("Test error"))
+                    results.append(.failure("Test error"))
                 }
             }
 
-            return eventLoopGroup.next().makeSucceededFuture(results)
+            return results
         }
 
-        let value1 = try identityLoader.load(key: 1, on: eventLoopGroup)
-        let value2 = try identityLoader.load(key: 2, on: eventLoopGroup)
+        async let value1 = identityLoader.load(key: 1)
+        async let value2 = identityLoader.load(key: 2)
 
-        XCTAssertThrowsError(try value2.wait())
+        var didFailWithError: Error?
 
-        XCTAssertTrue(try value1.wait() == 1)
+        do {
+            _ = try await value2
+        } catch {
+            didFailWithError = error
+        }
+
+        XCTAssertNotNil(didFailWithError)
+
+        let value = try await value1
+
+        XCTAssertTrue(value == 1)
     }
 
-    func testFuntionWithSomeValues() throws {
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
-        }
-
+    func testFuntionWithSomeValues() async throws {
         let identityLoader = DataLoader<Int, Int>(
             options: DataLoaderOptions(batchingEnabled: false)
         ) { keys in
-            var results = [DataLoaderFutureValue<Int>]()
+            var results = [DataLoaderValue<Int>]()
 
             for key in keys {
                 if key == 1 {
-                    results.append(DataLoaderFutureValue.success(key))
+                    results.append(.success(key))
                 } else {
-                    results.append(DataLoaderFutureValue.failure("Test error"))
+                    results.append(.failure("Test error"))
                 }
             }
 
-            return eventLoopGroup.next().makeSucceededFuture(results)
+            return results
         }
 
-        let value1 = try identityLoader.load(key: 1, on: eventLoopGroup)
-        let value2 = try identityLoader.load(key: 2, on: eventLoopGroup)
+        async let value1 = identityLoader.load(key: 1)
+        async let value2 = identityLoader.load(key: 2)
+        
+        var didFailWithError: Error?
 
-        XCTAssertThrowsError(try value2.wait())
+        do {
+            _ = try await value2
+        } catch {
+            didFailWithError = error
+        }
 
-        XCTAssertTrue(try value1.wait() == 1)
+        XCTAssertNotNil(didFailWithError)
+
+        let value = try await value1
+
+        XCTAssertTrue(value == 1)
     }
 }
 
