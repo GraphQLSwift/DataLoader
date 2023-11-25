@@ -7,8 +7,24 @@ public enum DataLoaderValue<T: Sendable>: Sendable {
     case failure(Error)
 }
 
+actor Concurrent<T> {
+    var wrappedValue: T
+
+    func nonmutating<Returned>(_ action: (T) throws -> Returned) async rethrows -> Returned {
+        try action(wrappedValue)
+    }
+
+    func mutating<Returned>(_ action: (inout T) throws -> Returned) async rethrows -> Returned {
+        try action(&wrappedValue)
+    }
+
+    init(_ value: T) {
+        wrappedValue = value
+    }
+}
+
 public typealias BatchLoadFunction<Key: Hashable & Sendable, Value: Sendable> = @Sendable (_ keys: [Key]) async throws -> [DataLoaderValue<Value>]
-private typealias LoaderQueue<Key: Hashable & Sendable, Value: Sendable> = [(key: Key, channel: AsyncThrowingChannel<Value, Error>)]
+private typealias LoaderQueue<Key: Hashable & Sendable, Value: Sendable> = [(key: Key, channel: Channel<Value, Error>)]
 
 /// DataLoader creates a public API for loading data from a particular
 /// data back-end with unique keys such as the id column of a SQL table
@@ -22,7 +38,7 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
     private let batchLoadFunction: BatchLoadFunction<Key, Value>
     private let options: DataLoaderOptions<Key, Value>
 
-    private var cache = [Key: Value]()
+    private var cache = [Key: Channel<Value, Error>]()
     private var queue = LoaderQueue<Key, Value>()
 
     private var dispatchScheduled = false
@@ -40,10 +56,10 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
         let cacheKey = options.cacheKeyFunction?(key) ?? key
 
         if options.cachingEnabled, let cached = cache[cacheKey] {
-            return cached
+            return try await cached.value
         }
 
-        let channel = AsyncThrowingChannel<Value, Error>()
+        let channel = Channel<Value, Error>()
 
         if options.batchingEnabled {
             queue.append((key: key, channel: channel))
@@ -59,38 +75,27 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
                 do {
                     let results = try await self.batchLoadFunction([key])
                     if results.isEmpty {
-                        channel.fail(DataLoaderError.noValueForKey("Did not return value for key: \(key)"))
+                        await channel.fail(with: DataLoaderError.noValueForKey("Did not return value for key: \(key)"))
                     } else {
                         let result = results[0]
                         switch result {
                         case let .success(value):
-                                await channel.send(value)
-                                channel.finish()
+                            await channel.fulfill(with: value)
                         case let .failure(error):
-                            channel.fail(error)
+                                await channel.fail(with: error)
                         }
                     }
                 } catch {
-                    channel.fail(error)
+                    await channel.fail(with: error)
                 }
             }
         }
 
-        var value: Value?
-
-        for try await channelResult in channel {
-            value = channelResult
-        }
-
-        guard let value else {
-            throw DataLoaderError.noValueForKey("Did not return value for key: \(key)")
-        }
-
         if options.cachingEnabled {
-            cache[cacheKey] = value
+            cache[cacheKey] = channel
         }
 
-        return value
+        return try await channel.value
     }
 
     /// Loads multiple keys, promising an array of values:
@@ -146,16 +151,12 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
         let cacheKey = options.cacheKeyFunction?(key) ?? key
 
         if cache[cacheKey] == nil {
-            let channel = AsyncThrowingChannel<Value, Error>()
+            let channel = Channel<Value, Error>()
             Task.detached {
-                await channel.send(value)
-                
-                channel.finish()
+                await channel.fulfill(with: value)
             }
 
-            for try await channelResult in channel {
-                cache[cacheKey] = channelResult
-            }
+            cache[cacheKey] = channel
         }
 
         return self
@@ -204,21 +205,98 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
 
                 switch result {
                 case let .failure(error):
-                    entry.element.channel.fail(error)
+                        await entry.element.channel.fail(with: error)
                 case let .success(value):
-                    await entry.element.channel.send(value)
-                    entry.element.channel.finish()
+                    await entry.element.channel.fulfill(with: value)
                 }
             }
         } catch {
-            failedExecution(batch: batch, error: error)
+            await failedExecution(batch: batch, error: error)
         }
     }
 
-    private func failedExecution(batch: LoaderQueue<Key, Value>, error: Error) {
+    private func failedExecution(batch: LoaderQueue<Key, Value>, error: Error) async {
         for (key, channel) in batch {
             _ = clear(key: key)
-            channel.fail(error)
+            await channel.fail(with: error)
         }
+    }
+}
+
+public actor Channel<Success: Sendable, Failure: Error>: Sendable {
+    typealias Waiter = CheckedContinuation<Success, Error>
+
+    private actor State {
+        var waiters = [Waiter]()
+        var result: Success? = nil
+        var failure: Failure? = nil
+
+        func setResult(result: Success) {
+            self.result = result
+        }
+
+        func setFailure(failure: Failure) {
+            self.failure = failure
+        }
+
+        func appendWaiters(waiters: Waiter...) {
+            self.waiters.append(contentsOf: waiters)
+        }
+
+        func removeAllWaiters() {
+            self.waiters.removeAll()
+        }
+    }
+
+    private var state = State()
+
+    public init(_ elementType: Success.Type = Success.self) {}
+
+    @discardableResult
+    public func fulfill(with value: Success) async -> Bool {
+            if await state.result == nil {
+                await state.setResult(result:value)
+                for waiters in await state.waiters {
+                    waiters.resume(returning: value)
+                }
+                await state.removeAllWaiters()
+                return false
+            }
+        return true
+    }
+
+    @discardableResult
+    public func fail(with failure: Failure) async -> Bool {
+            if await state.failure == nil {
+                await state.setFailure(failure: failure)
+                for waiters in await state.waiters {
+                    waiters.resume(throwing: failure)
+                }
+                await state.removeAllWaiters()
+                return false
+            }
+        return true
+    }
+
+    public var value: Success {
+        get async throws {
+            try await withCheckedThrowingContinuation { continuation in
+                Task {
+                    if let result = await state.result {
+                        continuation.resume(returning: result)
+                    } else if let failure = await self.state.failure {
+                        continuation.resume(throwing: failure)
+                    } else {
+                        await state.appendWaiters(waiters: continuation)
+                    }
+                }
+            }
+        }
+    }
+}
+
+extension Channel where Success == Void {
+    func fulfill() async -> Bool {
+        return await fulfill(with: ())
     }
 }
