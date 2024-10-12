@@ -111,4 +111,4 @@ class DataLoaderAbuseTests: XCTestCase {
     }
 }
 
-extension String: Error {}
+extension String: Swift.Error {}

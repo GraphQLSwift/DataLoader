@@ -121,8 +121,7 @@ final class DataLoaderTests: XCTestCase {
 
         XCTAssertNil(didFailWithError)
 
-        let result1 = try await value1
-        let result2 = try await value2
+        let (result1, result2) = try await (value1, value2)
         let result3 = try await value3
 
         XCTAssertEqual(result1, 1)
