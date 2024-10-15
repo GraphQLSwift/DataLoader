@@ -19,7 +19,10 @@ class DataLoaderAbuseTests: XCTestCase {
 
         let value = try identityLoader.load(key: 1, on: eventLoopGroup)
 
-        XCTAssertThrowsError(try value.wait(), "Did not return value for key: 1")
+        XCTAssertThrowsError(
+            try value.wait(),
+            "Did not return value for key: 1"
+        )
     }
 
     func testBatchFuntionMustPromiseAnArrayOfCorrectLength() throws {
@@ -53,7 +56,9 @@ class DataLoaderAbuseTests: XCTestCase {
                 if key == 1 {
                     results.append(DataLoaderFutureValue.success(key))
                 } else {
-                    results.append(DataLoaderFutureValue.failure("Test error"))
+                    results.append(
+                        DataLoaderFutureValue.failure(DataLoaderError.typeError("Test error"))
+                    )
                 }
             }
 
@@ -83,7 +88,9 @@ class DataLoaderAbuseTests: XCTestCase {
                 if key == 1 {
                     results.append(DataLoaderFutureValue.success(key))
                 } else {
-                    results.append(DataLoaderFutureValue.failure("Test error"))
+                    results.append(
+                        DataLoaderFutureValue.failure(DataLoaderError.typeError("Test error"))
+                    )
                 }
             }
 
@@ -98,5 +105,3 @@ class DataLoaderAbuseTests: XCTestCase {
         XCTAssertTrue(try value1.wait() == 1)
     }
 }
-
-extension String: Error {}
