@@ -1,8 +1,8 @@
-public actor Channel<Success: Sendable, Failure: Error>: Sendable {
+internal actor Channel<Success: Sendable, Failure: Error>: Sendable {
     private var state = State<Success, Failure>()
 }
 
-public extension Channel {
+internal extension Channel {
     @discardableResult
     func fulfill(_ value: Success) async -> Bool {
         if await state.result == nil {

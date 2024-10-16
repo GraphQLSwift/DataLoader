@@ -19,6 +19,9 @@ actor Concurrent<T> {
 }
 
 /// Primary API
+///The `try await Task.sleep(nanoseconds: 2_000_000)` introduces a small delay to simulate asynchronous
+///behavior and ensure that concurrent requests (`value1`, `value2`...) are grouped into a single batch
+///for processing, as intended by the batching settings.
 final class DataLoaderTests: XCTestCase {
     /// Builds a really really simple data loader'
     func testReallyReallySimpleDataLoader() async throws {
