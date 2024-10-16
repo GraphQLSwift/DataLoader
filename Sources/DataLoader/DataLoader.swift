@@ -34,7 +34,7 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
         self.batchLoadFunction = batchLoadFunction
     }
 
-    /// Loads a key, returning an `Value` for the value represented by that key.
+    /// Loads a key, returning the value represented by that key.
     public func load(key: Key) async throws -> Value {
         let cacheKey = options.cacheKeyFunction?(key) ?? key
 
