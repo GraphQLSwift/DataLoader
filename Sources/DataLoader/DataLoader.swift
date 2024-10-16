@@ -17,7 +17,7 @@ private typealias LoaderQueue<Key: Hashable & Sendable, Value: Sendable> = [(key
 /// when used in long-lived applications or those which serve many users
 /// with different access permissions and consider creating a new instance
 /// per data request.
-public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
+internal actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
     private let batchLoadFunction: BatchLoadFunction<Key, Value>
     private let options: DataLoaderOptions<Key, Value>
 
