@@ -26,7 +26,7 @@ public final class DataLoader<Key: Hashable, Value> {
     private var queue = LoaderQueue<Key, Value>()
 
     private var dispatchScheduled = false
-    private let lock = Lock()
+    private let lock = NIOLock()
 
     public init(
         options: DataLoaderOptions<Key, Value> = DataLoaderOptions(),
