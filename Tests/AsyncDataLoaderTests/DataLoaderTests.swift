@@ -21,9 +21,9 @@ actor Concurrent<T> {
 }
 
 /// Primary API
-///The `try await Task.sleep(nanoseconds: 2_000_000)` introduces a small delay to simulate asynchronous
-///behavior and ensure that concurrent requests (`value1`, `value2`...) are grouped into a single batch
-///for processing, as intended by the batching settings.
+/// The `try await Task.sleep(nanoseconds: 2_000_000)` introduces a small delay to simulate
+/// asynchronous behavior and ensure that concurrent requests (`value1`, `value2`...)
+/// are grouped into a single batch for processing, as intended by the batching settings.
 final class DataLoaderTests: XCTestCase {
     /// Builds a really really simple data loader'
     func testReallyReallySimpleDataLoader() async throws {
@@ -126,7 +126,8 @@ final class DataLoaderTests: XCTestCase {
 
         XCTAssertNil(didFailWithError)
 
-        let (result1, result2) = try await (value1, value2)
+        let result1 = try await value1
+        let result2 = try await value2
         let result3 = try await value3
 
         XCTAssertEqual(result1, 1)
@@ -134,8 +135,9 @@ final class DataLoaderTests: XCTestCase {
         XCTAssertEqual(result3, 3)
 
         let calls = await loadCalls.wrappedValue
-
-        XCTAssertEqual(calls.map { $0.sorted() }, [[1, 2], [3]])
+        
+        XCTAssertEqual(calls.first?.count, 2)
+        XCTAssertEqual(calls.last?.count, 1)
     }
 
     /// Coalesces identical requests

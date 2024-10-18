@@ -6,8 +6,12 @@ public enum DataLoaderValue<T: Sendable>: Sendable {
     case failure(Error)
 }
 
-public typealias BatchLoadFunction<Key: Hashable & Sendable, Value: Sendable> = @Sendable (_ keys: [Key]) async throws -> [DataLoaderValue<Value>]
-private typealias LoaderQueue<Key: Hashable & Sendable, Value: Sendable> = [(key: Key, channel: Channel<Value, Error>)]
+public typealias BatchLoadFunction<Key: Hashable & Sendable, Value: Sendable> =
+    @Sendable (_ keys: [Key]) async throws -> [DataLoaderValue<Value>]
+private typealias LoaderQueue<Key: Hashable & Sendable, Value: Sendable> = [(
+    key: Key,
+    channel: Channel<Value, Error>
+)]
 
 /// DataLoader creates a public API for loading data from a particular
 /// data back-end with unique keys such as the id column of a SQL table
@@ -61,7 +65,11 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
                     let results = try await self.batchLoadFunction([key])
 
                     if results.isEmpty {
-                        await channel.fail(DataLoaderError.noValueForKey("Did not return value for key: \(key)"))
+                        await channel
+                            .fail(
+                                DataLoaderError
+                                    .noValueForKey("Did not return value for key: \(key)")
+                            )
                     } else {
                         let result = results[0]
 
@@ -190,7 +198,10 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
             let values = try await batchLoadFunction(keys)
 
             if values.count != keys.count {
-                throw DataLoaderError.typeError("The function did not return an array of the same length as the array of keys. \nKeys count: \(keys.count)\nValues count: \(values.count)")
+                throw DataLoaderError
+                    .typeError(
+                        "The function did not return an array of the same length as the array of keys. \nKeys count: \(keys.count)\nValues count: \(values.count)"
+                    )
             }
 
             for entry in batch.enumerated() {
