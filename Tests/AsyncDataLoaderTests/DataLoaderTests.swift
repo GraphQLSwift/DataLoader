@@ -135,7 +135,7 @@ final class DataLoaderTests: XCTestCase {
         XCTAssertEqual(result3, 3)
 
         let calls = await loadCalls.wrappedValue
-        
+
         XCTAssertEqual(calls.first?.count, 2)
         XCTAssertEqual(calls.last?.count, 1)
     }
