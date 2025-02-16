@@ -1,5 +1,5 @@
 import Algorithms
-import AsyncCollections
+import AsyncAlgorithms
 
 public enum DataLoaderValue<T: Sendable>: Sendable {
     case success(T)
@@ -117,7 +117,7 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
             return []
         }
 
-        return try await keys.concurrentMap { try await self.load(key: $0) }
+        return try await Array(keys.async.map { try await self.load(key: $0) })
     }
 
     /// Clears the value at `key` from the cache, if it exists. Returns itself for
@@ -177,8 +177,8 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
         // If a maxBatchSize was provided and the queue is longer, then segment the
         // queue into multiple batches, otherwise treat the queue as a single batch.
         if let maxBatchSize = options.maxBatchSize, maxBatchSize > 0, maxBatchSize < batch.count {
-            try await batch.chunks(ofCount: maxBatchSize).asyncForEach { slicedBatch in
-                try await self.executeBatch(batch: Array(slicedBatch))
+            for try await slicedBatch in batch.chunks(ofCount: maxBatchSize).async {
+                try await executeBatch(batch: Array(slicedBatch))
             }
         } else {
             try await executeBatch(batch: batch)
