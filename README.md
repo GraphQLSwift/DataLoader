@@ -1,10 +1,12 @@
 # DataLoader
+
+[![](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](https://tldrlegal.com/license/mit-license)
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FGraphQLSwift%2FDataLoader%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/GraphQLSwift/DataLoader)
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FGraphQLSwift%2FDataLoader%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/GraphQLSwift/DataLoader)
+
 DataLoader is a generic utility to be used as part of your application's data fetching layer to provide a simplified and consistent API over various remote data sources such as databases or web services via batching and caching.
 
 This is a Swift version of the Facebook [DataLoader](https://github.com/facebook/dataloader).
-
-[![Swift][swift-badge]][swift-url]
-[![License][mit-badge]][mit-url]
 
 ## Gettings started 🚀
 
@@ -40,7 +42,7 @@ let future2 = try userLoader.load(key: 2, on: eventLoopGroup)
 let future3 = try userLoader.load(key: 1, on: eventLoopGroup)
 ```
 
-The example above will only fetch two users, because the user with key `1` is present twice in the list. 
+The example above will only fetch two users, because the user with key `1` is present twice in the list.
 
 ### Load multiple keys
 There is also a method to load multiple keys at once
@@ -50,14 +52,14 @@ try userLoader.loadMany(keys: [1, 2, 3], on: eventLoopGroup)
 
 ### Execution
 By default, a DataLoader will wait for a short time from the moment `load` is called to collect keys prior
-to running the `batchLoadFunction` and completing the `load` futures. This is to let keys accumulate and 
-batch into a smaller number of total requests. This amount of time is configurable using the `executionPeriod` 
+to running the `batchLoadFunction` and completing the `load` futures. This is to let keys accumulate and
+batch into a smaller number of total requests. This amount of time is configurable using the `executionPeriod`
 option:
 
 ```swift
 let myLoader =  DataLoader<String, String>(
     options: DataLoaderOptions(executionPeriod: .milliseconds(50)),
-    batchLoadFunction: { keys in 
+    batchLoadFunction: { keys in
         self.someBatchLoader(keys: keys).map { DataLoaderFutureValue.success($0) }
     }
 )
@@ -66,10 +68,10 @@ let myLoader =  DataLoader<String, String>(
 Longer execution periods reduce the number of total data requests, but also reduce the responsiveness of the
 `load` futures.
 
-If desired, you can manually execute the `batchLoadFunction` and complete the futures at any time, using the 
+If desired, you can manually execute the `batchLoadFunction` and complete the futures at any time, using the
 `.execute()` method.
 
-Scheduled execution can be disabled by setting `executionPeriod` to `nil`, but be careful - you *must* call `.execute()` 
+Scheduled execution can be disabled by setting `executionPeriod` to `nil`, but be careful - you *must* call `.execute()`
 manually in this case. Otherwise, the futures will never complete!
 
 ### Disable batching
@@ -78,10 +80,10 @@ In this case, the `batchLoadFunction` will be invoked immediately when a key is 
 
 
 ## Caching 💰
-DataLoader provides a memoization cache. After `.load()` is called with a key, the resulting value is cached 
+DataLoader provides a memoization cache. After `.load()` is called with a key, the resulting value is cached
 for the lifetime of the DataLoader object. This eliminates redundant loads.
 
-In addition to relieving pressure on your data storage, caching results also creates fewer objects which may 
+In addition to relieving pressure on your data storage, caching results also creates fewer objects which may
 relieve memory pressure on your application:
 
 ```swift
@@ -132,7 +134,7 @@ userLoader.load(key: 4, on: eventLoopGroup)
 
 ### Caching Errors
 
-If a batch load fails (that is, a batch function throws or returns a DataLoaderFutureValue.failure(Error)), 
+If a batch load fails (that is, a batch function throws or returns a DataLoaderFutureValue.failure(Error)),
 then the requested values will not be cached. However if a batch
 function returns an `Error` instance for an individual value, that `Error` will
 be cached to avoid frequently loading the same `Error`.
@@ -140,7 +142,7 @@ be cached to avoid frequently loading the same `Error`.
 In some circumstances you may wish to clear the cache for these individual Errors:
 
 ```swift
-userLoader.load(key: 1, on: eventLoopGroup).whenFailure { error in 
+userLoader.load(key: 1, on: eventLoopGroup).whenFailure { error in
     if (/* determine if should clear error */) {
         userLoader.clear(key: 1);
     }
@@ -165,7 +167,7 @@ For example:
 ```swift
 let myLoader =  DataLoader<String, String>(
     options: DataLoaderOptions(cachingEnabled: false),
-    batchLoadFunction: { keys in 
+    batchLoadFunction: { keys in
         self.someBatchLoader(keys: keys).map { DataLoaderFutureValue.success($0) }
     }
 )
@@ -193,7 +195,7 @@ let myLoader = DataLoader<String, String>(batchLoadFunction: { keys in
 ## Using with GraphQL 🎀
 
 DataLoader pairs nicely well with [GraphQL](https://github.com/GraphQLSwift/GraphQL) and
-[Graphiti](https://github.com/GraphQLSwift/Graphiti). GraphQL fields are designed to be 
+[Graphiti](https://github.com/GraphQLSwift/Graphiti). GraphQL fields are designed to be
 stand-alone functions. Without a caching or batching mechanism,
 it's easy for a naive GraphQL server to issue new database requests each time a
 field is resolved.
@@ -220,7 +222,7 @@ Consider the following GraphQL request:
 Naively, if `me`, `bestFriend` and `friends` each need to request the backend,
 there could be at most 12 database requests!
 
-By using DataLoader, we could batch our requests to a `User` type, and 
+By using DataLoader, we could batch our requests to a `User` type, and
 only require at most 4 database requests, and possibly fewer if there are cache hits.
 Here's a full example using Graphiti:
 
@@ -230,11 +232,11 @@ struct User : Codable {
     let name: String
     let bestFriendID: Int
     let friendIDs: [Int]
-    
+
     func getBestFriend(context: UserContext, arguments: NoArguments, group: EventLoopGroup) throws -> EventLoopFuture<User> {
         return try context.userLoader.load(key: user.bestFriendID, on: group)
     }
-    
+
     struct FriendArguments {
         first: Int
     }
@@ -271,7 +273,7 @@ struct UserAPI : API {
                 Argument("first", at: .\first)
             }
         }
-        
+
         Query {
             Field("me", at: UserResolver.hero, as: User.self)
         }
@@ -299,14 +301,6 @@ swiftformat .
 
 ## Acknowledgements 👏
 
-This library is entirely a Swift version of Facebooks [DataLoader](https://github.com/facebook/dataloader). 
-Developed by  [Lee Byron](https://github.com/leebyron) and [Nicholas Schrock](https://github.com/schrockn) 
+This library is entirely a Swift version of Facebooks [DataLoader](https://github.com/facebook/dataloader).
+Developed by  [Lee Byron](https://github.com/leebyron) and [Nicholas Schrock](https://github.com/schrockn)
 from [Facebook](https://www.facebook.com/).
-
-
-
-[swift-badge]: https://img.shields.io/badge/Swift-5.2-orange.svg?style=flat
-[swift-url]: https://swift.org
-
-[mit-badge]: https://img.shields.io/badge/License-MIT-blue.svg?style=flat
-[mit-url]: https://tldrlegal.com/license/mit-license
