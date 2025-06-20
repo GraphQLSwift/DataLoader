@@ -1,4 +1,4 @@
-import NIO
+import NIOPosix
 import XCTest
 
 @testable import DataLoader
