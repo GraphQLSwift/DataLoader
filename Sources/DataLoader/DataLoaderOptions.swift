@@ -1,4 +1,4 @@
-import NIO
+import NIOCore
 
 public struct DataLoaderOptions<Key: Hashable, Value> {
     /// Default `true`. Set to `false` to disable batching, invoking

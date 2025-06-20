@@ -19,7 +19,7 @@ let package = Package(
         .target(
             name: "DataLoader",
             dependencies: [
-                .product(name: "NIO", package: "swift-nio"),
+                .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
             ]
         ),
@@ -30,7 +30,14 @@ let package = Package(
                 .product(name: "AsyncCollections", package: "async-collections"),
             ]
         ),
-        .testTarget(name: "DataLoaderTests", dependencies: ["DataLoader"]),
+        .testTarget(
+            name: "DataLoaderTests",
+            dependencies: [
+                "DataLoader",
+                .product(name: "NIOCore", package: "swift-nio"),
+                .product(name: "NIOPosix", package: "swift-nio"),
+            ]
+        ),
         .testTarget(name: "AsyncDataLoaderTests", dependencies: ["AsyncDataLoader"]),
     ]
 )
