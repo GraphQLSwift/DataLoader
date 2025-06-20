@@ -1,5 +1,5 @@
-import NIO
 import NIOConcurrencyHelpers
+import NIOCore
 
 public enum DataLoaderFutureValue<T> {
     case success(T)

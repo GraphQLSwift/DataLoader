@@ -19,7 +19,7 @@ let package = Package(
         .target(
             name: "DataLoader",
             dependencies: [
-                .product(name: "NIO", package: "swift-nio"),
+                .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
             ]
         ),
