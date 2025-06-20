@@ -571,7 +571,6 @@ final class DataLoaderTests: XCTestCase {
         let identityLoader = DataLoader<String, String>(
             options: DataLoaderOptions(executionPeriod: sleepConstant)
         ) { keys in
-
             keys.map { DataLoaderValue.success($0) }
         }
 
