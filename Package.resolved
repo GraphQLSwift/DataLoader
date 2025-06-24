@@ -1,4 +1,5 @@
 {
+  "originHash" : "34f315fb9047f350b535493d2e79e60dfd40675b4bfc9f7a8e4b8d79bb3dd6c5",
   "pins" : [
     {
       "identity" : "async-collections",
@@ -39,10 +40,10 @@
     {
       "identity" : "swift-nio",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/apple/swift-nio.git",
+      "location" : "https://github.com/PassiveLogic/swift-nio.git",
       "state" : {
-        "revision" : "34d486b01cd891297ac615e40d5999536a1e138d",
-        "version" : "2.83.0"
+        "branch" : "main",
+        "revision" : "8d2347a56b812083fe547e584de023f2668fe6fe"
       }
     },
     {
@@ -59,10 +60,10 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-system.git",
       "state" : {
-        "revision" : "c8a44d836fe7913603e246acab7c528c2e780168",
-        "version" : "1.4.0"
+        "revision" : "61e4ca4b81b9e09e2ec863b00c340eb13497dac6",
+        "version" : "1.5.0"
       }
     }
   ],
-  "version" : 2
+  "version" : 3
 }
