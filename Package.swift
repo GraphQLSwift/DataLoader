@@ -13,10 +13,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-algorithms.git", from: "1.0.0"),
         .package(url: "https://github.com/adam-fowler/async-collections", from: "0.0.1"),
-
-        // TODO: SM: Revert before merging. Temporarily using PL nio to test fix for NIOCore.
-        // .package(url: "https://github.com/apple/swift-nio.git", from: "2.0.0"),
-        .package(url: "https://github.com/PassiveLogic/swift-nio.git", branch: "main"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.84.0"),
     ],
     targets: [
         .target(
