@@ -10,7 +10,7 @@ public typealias BatchLoadFunction<Key: Hashable & Sendable, Value: Sendable> =
     @Sendable (_ keys: [Key]) async throws -> [DataLoaderValue<Value>]
 private typealias LoaderQueue<Key: Hashable & Sendable, Value: Sendable> = [(
     key: Key,
-    channel: Channel<Value, Error>
+    channel: Channel<Value, Error, State<Value, Error>>
 )]
 
 /// DataLoader creates a public API for loading data from a particular
@@ -25,7 +25,7 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
     private let batchLoadFunction: BatchLoadFunction<Key, Value>
     private let options: DataLoaderOptions<Key, Value>
 
-    private var cache = [Key: Channel<Value, Error>]()
+    private var cache = [Key: Channel<Value, Error, State<Value, Error>>]()
     private var queue = LoaderQueue<Key, Value>()
 
     private var dispatchScheduled = false
@@ -46,7 +46,7 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
             return try await cached.value
         }
 
-        let channel = Channel<Value, Error>()
+        let channel = Channel<Value, Error, State<Value, Error>>()
 
         if options.batchingEnabled {
             queue.append((key: key, channel: channel))
@@ -148,7 +148,7 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
         let cacheKey = options.cacheKeyFunction?(key) ?? key
 
         if cache[cacheKey] == nil {
-            let channel = Channel<Value, Error>()
+            let channel = Channel<Value, Error, State<Value, Error>>()
 
             Task.detached {
                 await channel.fulfill(value)

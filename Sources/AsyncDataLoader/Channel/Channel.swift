@@ -1,5 +1,20 @@
-actor Channel<Success: Sendable, Failure: Error>: Sendable {
-    private var state = State<Success, Failure>()
+actor Channel<
+    Success: Sendable,
+    Failure: Error,
+    ChannelState: Stateful
+>: Sendable where ChannelState.Success == Success, ChannelState.Failure == Failure {
+    private var state: ChannelState
+
+    init(_ state: ChannelState) {
+        self.state = state
+    }
+}
+
+extension Channel where ChannelState == State<Success, Failure> {
+    /// Default initializer: uses DefaultState
+    init() {
+        self.init(State<Success, Failure>())
+    }
 }
 
 extension Channel {
