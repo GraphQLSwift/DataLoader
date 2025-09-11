@@ -1,16 +1,15 @@
 actor Channel<Success: Sendable, Failure: Error>: Sendable {
     private var waiters = [Waiter<Success, Failure>]()
-    private var result: Success?
-    private var failure: Failure?
+    private var result: Result<Success, Failure>?
 }
 
 typealias Waiter<Success, Failure> = CheckedContinuation<Success, Error>
 
 extension Channel {
     @discardableResult
-    func fulfill(_ value: Success) -> Bool {
+    func fulfill(_ success: Success) -> Bool {
         if result == nil {
-            result = value
+            result = .success(success)
 
             while let waiter = waiters.popLast() {
                 waiter.resume(returning: success)
@@ -24,8 +23,8 @@ extension Channel {
 
     @discardableResult
     func fail(_ failure: Failure) -> Bool {
-        if self.failure == nil {
-            self.failure = failure
+        if result == nil {
+            result = .failure(failure)
 
             while let waiter = waiters.popLast() {
                 waiter.resume(throwing: failure)
@@ -41,11 +40,12 @@ extension Channel {
         get async throws {
             try await withCheckedThrowingContinuation { continuation in
                 Task {
-                    if let result = self.result {
-                        continuation.resume(returning: result)
-                    } else if let failure = self.failure {
+                    switch result {
+                    case let .success(success):
+                        continuation.resume(returning: success)
+                    case let .failure(failure):
                         continuation.resume(throwing: failure)
-                    } else {
+                    case nil:
                         waiters.append(continuation)
                     }
                 }
