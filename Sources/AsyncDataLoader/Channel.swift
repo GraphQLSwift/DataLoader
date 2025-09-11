@@ -12,11 +12,9 @@ extension Channel {
         if result == nil {
             result = value
 
-            for waiter in waiters {
-                waiter.resume(returning: value)
+            while let waiter = waiters.popLast() {
+                waiter.resume(returning: success)
             }
-
-            waiters.removeAll()
 
             return false
         }
@@ -29,11 +27,9 @@ extension Channel {
         if self.failure == nil {
             self.failure = failure
 
-            for waiter in waiters {
+            while let waiter = waiters.popLast() {
                 waiter.resume(throwing: failure)
             }
-
-            waiters.removeAll()
 
             return false
         }
