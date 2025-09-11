@@ -8,32 +8,32 @@ typealias Waiter<Success, Failure> = CheckedContinuation<Success, Error>
 extension Channel {
     @discardableResult
     func fulfill(_ success: Success) -> Bool {
-        if result == nil {
-            result = .success(success)
-
-            while let waiter = waiters.popLast() {
-                waiter.resume(returning: success)
-            }
-
-            return false
+        guard result == nil else {
+            return true
         }
 
-        return true
+        result = .success(success)
+
+        while let waiter = waiters.popLast() {
+            waiter.resume(returning: success)
+        }
+
+        return false
     }
 
     @discardableResult
     func fail(_ failure: Failure) -> Bool {
-        if result == nil {
-            result = .failure(failure)
-
-            while let waiter = waiters.popLast() {
-                waiter.resume(throwing: failure)
-            }
-
-            return false
+        guard result == nil else {
+            return true
         }
 
-        return true
+        result = .failure(failure)
+
+        while let waiter = waiters.popLast() {
+            waiter.resume(throwing: failure)
+        }
+
+        return false
     }
 
     var value: Success {
