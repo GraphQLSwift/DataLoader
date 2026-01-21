@@ -1,0 +1,24 @@
+name: wasm
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  # NOTE: swift tests won't compile due to usage
+  # of NIOPosix. But we can at least test that wasm compilation
+  # works, to prevent future breakages.
+  wasm:
+    name: Test wasm compilation
+    runs-on: ubuntu-latest
+    container: swift:6.1.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: swiftwasm/setup-swiftwasm@v2
+        with:
+          target: "wasm32-unknown-wasip1-threads"
+      - run: swift build --swift-sdk wasm32-unknown-wasip1-threads
