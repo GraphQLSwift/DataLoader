@@ -1,6 +1,5 @@
-import XCTest
-
 @testable import AsyncDataLoader
+import XCTest
 
 /// Provides descriptive error messages for API abuse
 class DataLoaderAbuseTests: XCTestCase {

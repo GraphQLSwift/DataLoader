@@ -1,4 +1,4 @@
-// swift-tools-version:5.8
+// swift-tools-version:5.10.0
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -13,7 +13,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-algorithms.git", from: "1.0.0"),
         .package(url: "https://github.com/adam-fowler/async-collections", from: "0.0.1"),
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.0.0"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.84.0"),
     ],
     targets: [
         .target(

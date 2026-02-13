@@ -1,7 +1,6 @@
+@testable import DataLoader
 import NIOPosix
 import XCTest
-
-@testable import DataLoader
 
 /// Provides descriptive error messages for API abuse
 class DataLoaderAbuseTests: XCTestCase {

@@ -1,8 +1,7 @@
+@testable import DataLoader
 import NIOCore
 import NIOPosix
 import XCTest
-
-@testable import DataLoader
 
 /// Primary API
 final class DataLoaderTests: XCTestCase {
@@ -48,7 +47,7 @@ final class DataLoaderTests: XCTestCase {
         XCTAssertTrue(empty.isEmpty)
     }
 
-    // Batches multiple requests
+    /// Batches multiple requests
     func testMultipleRequests() throws {
         let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
@@ -144,7 +143,7 @@ final class DataLoaderTests: XCTestCase {
         XCTAssertTrue(loadCalls == [[1]])
     }
 
-    // Caches repeated requests
+    /// Caches repeated requests
     func testCachesRepeatedRequests() throws {
         let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
@@ -270,7 +269,7 @@ final class DataLoaderTests: XCTestCase {
         XCTAssertTrue(loadCalls == [["A", "B"], ["A", "B"]])
     }
 
-    // Allows priming the cache
+    /// Allows priming the cache
     func testAllowsPrimingTheCache() throws {
         let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
@@ -384,7 +383,7 @@ final class DataLoaderTests: XCTestCase {
         XCTAssertTrue(loadCalls == [["B"]])
     }
 
-    // Caches repeated requests, even if initiated asyncronously
+    /// Caches repeated requests, even if initiated asyncronously
     func testCacheConcurrency() throws {
         let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
