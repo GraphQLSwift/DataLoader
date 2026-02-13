@@ -1,6 +1,5 @@
-import XCTest
-
 @testable import AsyncDataLoader
+import XCTest
 
 let sleepConstant = UInt64(2_000_000)
 
@@ -53,7 +52,7 @@ final class DataLoaderTests: XCTestCase {
         XCTAssertTrue(empty.isEmpty)
     }
 
-    // Batches multiple requests
+    /// Batches multiple requests
     func testMultipleRequests() async throws {
         let loadCalls = Concurrent<[[Int]]>([])
 
@@ -178,7 +177,7 @@ final class DataLoaderTests: XCTestCase {
         XCTAssertTrue(calls.map { $0.sorted() } == [[1]])
     }
 
-    // Caches repeated requests
+    /// Caches repeated requests
     func testCachesRepeatedRequests() async throws {
         let loadCalls = Concurrent<[[String]]>([])
 
@@ -399,7 +398,7 @@ final class DataLoaderTests: XCTestCase {
         XCTAssertTrue(calls2.map { $0.sorted() } == [["A", "B"], ["A", "B"]])
     }
 
-    // Allows priming the cache
+    /// Allows priming the cache
     func testAllowsPrimingTheCache() async throws {
         let loadCalls = Concurrent<[[String]]>([])
 

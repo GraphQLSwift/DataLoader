@@ -1,7 +1,6 @@
+@testable import DataLoader
 import NIOPosix
 import XCTest
-
-@testable import DataLoader
 
 #if compiler(>=5.5) && canImport(_Concurrency)
 
@@ -70,7 +69,7 @@ import XCTest
             XCTAssertTrue(empty.isEmpty)
         }
 
-        // Batches multiple requests
+        /// Batches multiple requests
         func testMultipleRequests() async throws {
             let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
             defer {
@@ -96,8 +95,8 @@ import XCTest
             async let value1 = identityLoader.load(key: 1, on: eventLoopGroup)
             async let value2 = identityLoader.load(key: 2, on: eventLoopGroup)
 
-            /// Have to wait for a split second because Tasks may not be executed before this
-            /// statement
+            // Have to wait for a split second because Tasks may not be executed before this
+            // statement
             try await Task.sleep(nanoseconds: 500_000_000)
 
             XCTAssertNoThrow(try identityLoader.execute())
