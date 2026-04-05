@@ -1,6 +1,7 @@
-@testable import DataLoader
 import NIOPosix
 import XCTest
+
+@testable import DataLoader
 
 /// Provides descriptive error messages for API abuse
 class DataLoaderAbuseTests: XCTestCase {
@@ -30,7 +31,7 @@ class DataLoaderAbuseTests: XCTestCase {
             XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
         }
 
-        let identityLoader = DataLoader<Int, Int>() { _ in
+        let identityLoader = DataLoader<Int, Int> { _ in
             eventLoopGroup.next().makeSucceededFuture([])
         }
 
@@ -48,7 +49,7 @@ class DataLoaderAbuseTests: XCTestCase {
             XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
         }
 
-        let identityLoader = DataLoader<Int, Int>() { keys in
+        let identityLoader = DataLoader<Int, Int> { keys in
             var results = [DataLoaderFutureValue<Int>]()
 
             for key in keys {

@@ -59,16 +59,16 @@ public final class DataLoader<Key: Hashable, Value> {
                 do {
                     _ = try batchLoadFunction([key]).map { results in
                         if results.isEmpty {
-                            promise
-                                .fail(
-                                    DataLoaderError
-                                        .noValueForKey("Did not return value for key: \(key)")
+                            promise.fail(
+                                DataLoaderError.noValueForKey(
+                                    "Did not return value for key: \(key)"
                                 )
+                            )
                         } else {
                             let result = results[0]
                             switch result {
-                            case let .success(value): promise.succeed(value)
-                            case let .failure(error): promise.fail(error)
+                            case .success(let value): promise.succeed(value)
+                            case .failure(let error): promise.fail(error)
                             }
                         }
                     }
@@ -179,10 +179,10 @@ public final class DataLoader<Key: Hashable, Value> {
         // If a maxBatchSize was provided and the queue is longer, then segment the
         // queue into multiple batches, otherwise treat the queue as a single batch.
         if let maxBatchSize = options.maxBatchSize, maxBatchSize > 0, maxBatchSize < batch.count {
-            for i in 0 ... (batch.count / maxBatchSize) {
+            for i in 0...(batch.count / maxBatchSize) {
                 let startIndex = i * maxBatchSize
                 let endIndex = (i + 1) * maxBatchSize
-                let slicedBatch = batch[startIndex ..< min(endIndex, batch.count)]
+                let slicedBatch = batch[startIndex..<min(endIndex, batch.count)]
                 try executeBatch(batch: Array(slicedBatch))
             }
         } else {
@@ -202,18 +202,17 @@ public final class DataLoader<Key: Hashable, Value> {
         do {
             _ = try batchLoadFunction(keys).flatMapThrowing { values in
                 if values.count != keys.count {
-                    throw DataLoaderError
-                        .typeError(
-                            "The function did not return an array of the same length as the array of keys. \nKeys count: \(keys.count)\nValues count: \(values.count)"
-                        )
+                    throw DataLoaderError.typeError(
+                        "The function did not return an array of the same length as the array of keys. \nKeys count: \(keys.count)\nValues count: \(values.count)"
+                    )
                 }
 
                 for entry in batch.enumerated() {
                     let result = values[entry.offset]
 
                     switch result {
-                    case let .failure(error): entry.element.promise.fail(error)
-                    case let .success(value): entry.element.promise.succeed(value)
+                    case .failure(let error): entry.element.promise.fail(error)
+                    case .success(let value): entry.element.promise.succeed(value)
                     }
                 }
             }.recover { error in
@@ -238,25 +237,30 @@ public final class DataLoader<Key: Hashable, Value> {
     public typealias ConcurrentBatchLoadFunction<Key, Value> =
         @Sendable (_ keys: [Key]) async throws -> [DataLoaderFutureValue<Value>]
 
-    public extension DataLoader {
+    extension DataLoader {
         @available(macOS 12, iOS 15, watchOS 8, tvOS 15, *)
-        convenience init(
+        public convenience init(
             on eventLoop: EventLoop,
             options: DataLoaderOptions<Key, Value> = DataLoaderOptions(),
             throwing asyncThrowingLoadFunction: @escaping ConcurrentBatchLoadFunction<Key, Value>
         ) {
-            self.init(options: options, batchLoadFunction: { keys in
-                let promise = eventLoop.next().makePromise(of: [DataLoaderFutureValue<Value>].self)
-                promise.completeWithTask {
-                    try await asyncThrowingLoadFunction(keys)
+            self.init(
+                options: options,
+                batchLoadFunction: { keys in
+                    let promise = eventLoop.next().makePromise(
+                        of: [DataLoaderFutureValue<Value>].self
+                    )
+                    promise.completeWithTask {
+                        try await asyncThrowingLoadFunction(keys)
+                    }
+                    return promise.futureResult
                 }
-                return promise.futureResult
-            })
+            )
         }
 
         /// Asynchronously loads a key, returning the value represented by that key.
         @available(macOS 12, iOS 15, watchOS 8, tvOS 15, *)
-        func load(key: Key, on eventLoopGroup: EventLoopGroup) async throws -> Value {
+        public func load(key: Key, on eventLoopGroup: EventLoopGroup) async throws -> Value {
             try await load(key: key, on: eventLoopGroup).get()
         }
 
@@ -274,7 +278,8 @@ public final class DataLoader<Key: Hashable, Value> {
         /// let aAndB = try await a + b
         /// ```
         @available(macOS 12, iOS 15, watchOS 8, tvOS 15, *)
-        func loadMany(keys: [Key], on eventLoopGroup: EventLoopGroup) async throws -> [Value] {
+        public func loadMany(keys: [Key], on eventLoopGroup: EventLoopGroup) async throws -> [Value]
+        {
             try await loadMany(keys: keys, on: eventLoopGroup).get()
         }
     }

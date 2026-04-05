@@ -1,6 +1,7 @@
-@testable import DataLoader
 import NIOPosix
 import XCTest
+
+@testable import DataLoader
 
 #if compiler(>=5.5) && canImport(_Concurrency)
 

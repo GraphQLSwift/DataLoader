@@ -41,9 +41,9 @@ extension Channel {
             try await withCheckedThrowingContinuation { continuation in
                 Task {
                     switch result {
-                    case let .success(success):
+                    case .success(let success):
                         continuation.resume(returning: success)
-                    case let .failure(failure):
+                    case .failure(let failure):
                         continuation.resume(throwing: failure)
                     case nil:
                         waiters.append(continuation)

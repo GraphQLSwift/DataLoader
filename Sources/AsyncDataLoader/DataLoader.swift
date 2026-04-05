@@ -65,18 +65,16 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
                     let results = try await self.batchLoadFunction([key])
 
                     if results.isEmpty {
-                        await channel
-                            .fail(
-                                DataLoaderError
-                                    .noValueForKey("Did not return value for key: \(key)")
-                            )
+                        await channel.fail(
+                            DataLoaderError.noValueForKey("Did not return value for key: \(key)")
+                        )
                     } else {
                         let result = results[0]
 
                         switch result {
-                        case let .success(value):
+                        case .success(let value):
                             await channel.fulfill(value)
-                        case let .failure(error):
+                        case .failure(let error):
                             await channel.fail(error)
                         }
                     }
@@ -198,19 +196,18 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
             let values = try await batchLoadFunction(keys)
 
             if values.count != keys.count {
-                throw DataLoaderError
-                    .typeError(
-                        "The function did not return an array of the same length as the array of keys. \nKeys count: \(keys.count)\nValues count: \(values.count)"
-                    )
+                throw DataLoaderError.typeError(
+                    "The function did not return an array of the same length as the array of keys. \nKeys count: \(keys.count)\nValues count: \(values.count)"
+                )
             }
 
             for entry in batch.enumerated() {
                 let result = values[entry.offset]
 
                 switch result {
-                case let .failure(error):
+                case .failure(let error):
                     await entry.element.channel.fail(error)
-                case let .success(value):
+                case .success(let value):
                     await entry.element.channel.fulfill(value)
                 }
             }
