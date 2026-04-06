@@ -1,7 +1,8 @@
-@testable import DataLoader
 import NIOCore
 import NIOPosix
 import XCTest
+
+@testable import DataLoader
 
 /// Primary API
 final class DataLoaderTests: XCTestCase {
@@ -32,7 +33,7 @@ final class DataLoaderTests: XCTestCase {
             XCTAssertNoThrow(try eventLoopGroup.syncShutdownGracefully())
         }
 
-        let identityLoader = DataLoader<Int, Int>() { keys in
+        let identityLoader = DataLoader<Int, Int> { keys in
             let results = keys.map { DataLoaderFutureValue.success($0) }
 
             return eventLoopGroup.next().makeSucceededFuture(results)

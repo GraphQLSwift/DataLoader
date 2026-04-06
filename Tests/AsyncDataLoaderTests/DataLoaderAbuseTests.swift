@@ -1,5 +1,6 @@
-@testable import AsyncDataLoader
 import XCTest
+
+@testable import AsyncDataLoader
 
 /// Provides descriptive error messages for API abuse
 class DataLoaderAbuseTests: XCTestCase {
@@ -24,7 +25,7 @@ class DataLoaderAbuseTests: XCTestCase {
     }
 
     func testBatchFuntionMustPromiseAnArrayOfCorrectLength() async {
-        let identityLoader = DataLoader<Int, Int>() { _ in
+        let identityLoader = DataLoader<Int, Int> { _ in
             []
         }
 
@@ -42,7 +43,7 @@ class DataLoaderAbuseTests: XCTestCase {
     }
 
     func testBatchFuntionWithSomeValues() async throws {
-        let identityLoader = DataLoader<Int, Int>() { keys in
+        let identityLoader = DataLoader<Int, Int> { keys in
             var results = [DataLoaderValue<Int>]()
 
             for key in keys {

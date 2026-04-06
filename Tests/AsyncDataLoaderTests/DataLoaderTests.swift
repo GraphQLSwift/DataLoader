@@ -1,5 +1,6 @@
-@testable import AsyncDataLoader
 import XCTest
+
+@testable import AsyncDataLoader
 
 let sleepConstant = UInt64(2_000_000)
 
@@ -39,7 +40,7 @@ final class DataLoaderTests: XCTestCase {
 
     /// Supports loading multiple keys in one call
     func testLoadingMultipleKeys() async throws {
-        let identityLoader = DataLoader<Int, Int>() { keys in
+        let identityLoader = DataLoader<Int, Int> { keys in
             keys.map { DataLoaderValue.success($0) }
         }
 
@@ -618,7 +619,7 @@ final class DataLoaderTests: XCTestCase {
         var didFailWithErrorText2 = ""
 
         switch didFailWithError2 {
-        case let .typeError(text):
+        case .typeError(let text):
             didFailWithErrorText2 = text
         case .noValueForKey:
             break
@@ -648,7 +649,7 @@ final class DataLoaderTests: XCTestCase {
         var didFailWithErrorText3 = ""
 
         switch didFailWithError3 {
-        case let .typeError(text):
+        case .typeError(let text):
             didFailWithErrorText3 = text
         case .noValueForKey:
             break
