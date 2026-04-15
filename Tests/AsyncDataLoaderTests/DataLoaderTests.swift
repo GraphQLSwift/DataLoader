@@ -140,6 +140,52 @@ final class DataLoaderTests: XCTestCase {
         XCTAssertEqual(calls.last?.count, 1)
     }
 
+    func testSerialExecution() async throws {
+        let loadCalls = Concurrent<[[Int]]>([])
+
+        let identityLoader = DataLoader<Int, Int>(
+            options: DataLoaderOptions(
+                batchingEnabled: true,
+                maxBatchSize: 2,
+                executionPeriod: nil,
+                executionStrategy: .serial
+            )
+        ) { keys in
+            await loadCalls.mutating { $0.append(keys) }
+
+            return keys.map { DataLoaderValue.success($0) }
+        }
+
+        async let value1 = identityLoader.load(key: 1)
+        async let value2 = identityLoader.load(key: 2)
+        async let value3 = identityLoader.load(key: 3)
+
+        try await Task.sleep(nanoseconds: sleepConstant)
+
+        var didFailWithError: Error?
+
+        do {
+            _ = try await identityLoader.execute()
+        } catch {
+            didFailWithError = error
+        }
+
+        XCTAssertNil(didFailWithError)
+
+        let result1 = try await value1
+        let result2 = try await value2
+        let result3 = try await value3
+
+        XCTAssertEqual(result1, 1)
+        XCTAssertEqual(result2, 2)
+        XCTAssertEqual(result3, 3)
+
+        let calls = await loadCalls.wrappedValue
+
+        XCTAssertEqual(calls.first?.count, 2)
+        XCTAssertEqual(calls.last?.count, 1)
+    }
+
     /// Coalesces identical requests
     func testCoalescesIdenticalRequests() async throws {
         let loadCalls = Concurrent<[[Int]]>([])

@@ -20,6 +20,11 @@ public struct DataLoaderOptions<Key: Hashable, Value>: Sendable {
     /// This is irrelevant if batching is disabled.
     public let executionPeriod: UInt64?
 
+    /// Default `parallel`. Defines the strategy for execution when
+    /// the execution queue exceeds `maxBatchSize`.
+    /// This is irrelevant if batching is disabled.
+    public let executionStrategy: ExecutionStrategy
+
     /// Default `nil`. Produces cache key for a given load key. Useful
     /// when objects are keys and two objects should be considered equivalent.
     public let cacheKeyFunction: (@Sendable (Key) -> Key)?
@@ -29,12 +34,38 @@ public struct DataLoaderOptions<Key: Hashable, Value>: Sendable {
         cachingEnabled: Bool = true,
         maxBatchSize: Int? = nil,
         executionPeriod: UInt64? = 2_000_000,
+        executionStrategy: ExecutionStrategy = .parallel,
         cacheKeyFunction: (@Sendable (Key) -> Key)? = nil
     ) {
         self.batchingEnabled = batchingEnabled
         self.cachingEnabled = cachingEnabled
         self.executionPeriod = executionPeriod
+        self.executionStrategy = executionStrategy
         self.maxBatchSize = maxBatchSize
         self.cacheKeyFunction = cacheKeyFunction
+    }
+
+    /// The strategy for execution when the execution queue exceeds `maxBatchSize`.
+    public struct ExecutionStrategy: Sendable {
+        let option: Option
+
+        private init(option: Option) {
+            self.option = option
+        }
+
+        /// Batches within a single execution will be executed simultaneously
+        public static var parallel: Self {
+            .init(option: .parallel)
+        }
+
+        /// Batches within a single execution will be executed one-at-a-time
+        public static var serial: Self {
+            .init(option: .serial)
+        }
+
+        enum Option {
+            case parallel
+            case serial
+        }
     }
 }
