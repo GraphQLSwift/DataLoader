@@ -1,4 +1,5 @@
-import XCTest
+import Foundation
+import Testing
 
 @testable import AsyncDataLoader
 
@@ -24,9 +25,9 @@ actor Concurrent<T> {
 /// The `try await Task.sleep(nanoseconds: 2_000_000)` introduces a small delay to simulate
 /// asynchronous behavior and ensure that concurrent requests (`value1`, `value2`...)
 /// are grouped into a single batch for processing, as intended by the batching settings.
-final class DataLoaderTests: XCTestCase {
+struct DataLoaderTests {
     /// Builds a really really simple data loader'
-    func testReallyReallySimpleDataLoader() async throws {
+    @Test func reallyReallySimpleDataLoader() async throws {
         let identityLoader = DataLoader<Int, Int>(
             options: DataLoaderOptions(batchingEnabled: false)
         ) { keys in
@@ -35,26 +36,26 @@ final class DataLoaderTests: XCTestCase {
 
         let value = try await identityLoader.load(key: 1)
 
-        XCTAssertEqual(value, 1)
+        #expect(value == 1)
     }
 
     /// Supports loading multiple keys in one call
-    func testLoadingMultipleKeys() async throws {
+    @Test func loadingMultipleKeys() async throws {
         let identityLoader = DataLoader<Int, Int> { keys in
             keys.map { DataLoaderValue.success($0) }
         }
 
         let values = try await identityLoader.loadMany(keys: [1, 2])
 
-        XCTAssertEqual(values, [1, 2])
+        #expect(values == [1, 2])
 
         let empty = try await identityLoader.loadMany(keys: [])
 
-        XCTAssertTrue(empty.isEmpty)
+        #expect(empty.isEmpty)
     }
 
     /// Batches multiple requests
-    func testMultipleRequests() async throws {
+    @Test func multipleRequests() async throws {
         let loadCalls = Concurrent<[[Int]]>([])
 
         let identityLoader = DataLoader<Int, Int>(
@@ -81,21 +82,21 @@ final class DataLoaderTests: XCTestCase {
             didFailWithError = error
         }
 
-        XCTAssertNil(didFailWithError)
+        #expect(didFailWithError == nil)
 
         let result1 = try await value1
         let result2 = try await value2
 
-        XCTAssertEqual(result1, 1)
-        XCTAssertEqual(result2, 2)
+        #expect(result1 == 1)
+        #expect(result2 == 2)
 
         let calls = await loadCalls.wrappedValue
 
-        XCTAssertEqual(calls.map { $0.sorted() }, [[1, 2]])
+        #expect(calls.map { $0.sorted() } == [[1, 2]])
     }
 
     /// Batches multiple requests with max batch sizes
-    func testMultipleRequestsWithMaxBatchSize() async throws {
+    @Test func multipleRequestsWithMaxBatchSize() async throws {
         let loadCalls = Concurrent<[[Int]]>([])
 
         let identityLoader = DataLoader<Int, Int>(
@@ -124,24 +125,24 @@ final class DataLoaderTests: XCTestCase {
             didFailWithError = error
         }
 
-        XCTAssertNil(didFailWithError)
+        #expect(didFailWithError == nil)
 
         let result1 = try await value1
         let result2 = try await value2
         let result3 = try await value3
 
-        XCTAssertEqual(result1, 1)
-        XCTAssertEqual(result2, 2)
-        XCTAssertEqual(result3, 3)
+        #expect(result1 == 1)
+        #expect(result2 == 2)
+        #expect(result3 == 3)
 
         let calls = await loadCalls.wrappedValue
 
-        XCTAssertEqual(calls.first?.count, 2)
-        XCTAssertEqual(calls.last?.count, 1)
+        #expect(calls.first?.count == 2)
+        #expect(calls.last?.count == 1)
     }
 
     /// Coalesces identical requests
-    func testCoalescesIdenticalRequests() async throws {
+    @Test func coalescesIdenticalRequests() async throws {
         let loadCalls = Concurrent<[[Int]]>([])
 
         let identityLoader = DataLoader<Int, Int>(
@@ -165,21 +166,21 @@ final class DataLoaderTests: XCTestCase {
             didFailWithError = error
         }
 
-        XCTAssertNil(didFailWithError)
+        #expect(didFailWithError == nil)
 
         let result1 = try await value1
         let result2 = try await value2
 
-        XCTAssertTrue(result1 == 1)
-        XCTAssertTrue(result2 == 1)
+        #expect(result1 == 1)
+        #expect(result2 == 1)
 
         let calls = await loadCalls.wrappedValue
 
-        XCTAssertTrue(calls.map { $0.sorted() } == [[1]])
+        #expect(calls.map { $0.sorted() } == [[1]])
     }
 
     /// Caches repeated requests
-    func testCachesRepeatedRequests() async throws {
+    @Test func cachesRepeatedRequests() async throws {
         let loadCalls = Concurrent<[[String]]>([])
 
         let identityLoader = DataLoader<String, String>(
@@ -203,17 +204,17 @@ final class DataLoaderTests: XCTestCase {
             didFailWithError = error
         }
 
-        XCTAssertNil(didFailWithError)
+        #expect(didFailWithError == nil)
 
         let result1 = try await value1
         let result2 = try await value2
 
-        XCTAssertTrue(result1 == "A")
-        XCTAssertTrue(result2 == "B")
+        #expect(result1 == "A")
+        #expect(result2 == "B")
 
         let calls = await loadCalls.wrappedValue
 
-        XCTAssertTrue(calls.map { $0.sorted() } == [["A", "B"]])
+        #expect(calls.map { $0.sorted() } == [["A", "B"]])
 
         async let value3 = identityLoader.load(key: "A")
         async let value4 = identityLoader.load(key: "C")
@@ -228,17 +229,17 @@ final class DataLoaderTests: XCTestCase {
             didFailWithError2 = error
         }
 
-        XCTAssertNil(didFailWithError2)
+        #expect(didFailWithError2 == nil)
 
         let result3 = try await value3
         let result4 = try await value4
 
-        XCTAssertTrue(result3 == "A")
-        XCTAssertTrue(result4 == "C")
+        #expect(result3 == "A")
+        #expect(result4 == "C")
 
         let calls2 = await loadCalls.wrappedValue
 
-        XCTAssertTrue(calls2.map { $0.sorted() } == [["A", "B"], ["C"]])
+        #expect(calls2.map { $0.sorted() } == [["A", "B"], ["C"]])
 
         async let value5 = identityLoader.load(key: "A")
         async let value6 = identityLoader.load(key: "B")
@@ -254,23 +255,23 @@ final class DataLoaderTests: XCTestCase {
             didFailWithError3 = error
         }
 
-        XCTAssertNil(didFailWithError3)
+        #expect(didFailWithError3 == nil)
 
         let result5 = try await value5
         let result6 = try await value6
         let result7 = try await value7
 
-        XCTAssertTrue(result5 == "A")
-        XCTAssertTrue(result6 == "B")
-        XCTAssertTrue(result7 == "C")
+        #expect(result5 == "A")
+        #expect(result6 == "B")
+        #expect(result7 == "C")
 
         let calls3 = await loadCalls.wrappedValue
 
-        XCTAssertTrue(calls3.map { $0.sorted() } == [["A", "B"], ["C"]])
+        #expect(calls3.map { $0.sorted() } == [["A", "B"], ["C"]])
     }
 
     /// Clears single value in loader
-    func testClearSingleValueLoader() async throws {
+    @Test func clearSingleValueLoader() async throws {
         let loadCalls = Concurrent<[[String]]>([])
 
         let identityLoader = DataLoader<String, String>(
@@ -294,17 +295,17 @@ final class DataLoaderTests: XCTestCase {
             didFailWithError = error
         }
 
-        XCTAssertNil(didFailWithError)
+        #expect(didFailWithError == nil)
 
         let result1 = try await value1
         let result2 = try await value2
 
-        XCTAssertTrue(result1 == "A")
-        XCTAssertTrue(result2 == "B")
+        #expect(result1 == "A")
+        #expect(result2 == "B")
 
         let calls = await loadCalls.wrappedValue
 
-        XCTAssertTrue(calls.map { $0.sorted() } == [["A", "B"]])
+        #expect(calls.map { $0.sorted() } == [["A", "B"]])
 
         await identityLoader.clear(key: "A")
 
@@ -321,21 +322,21 @@ final class DataLoaderTests: XCTestCase {
             didFailWithError2 = error
         }
 
-        XCTAssertNil(didFailWithError2)
+        #expect(didFailWithError2 == nil)
 
         let result3 = try await value3
         let result4 = try await value4
 
-        XCTAssertTrue(result3 == "A")
-        XCTAssertTrue(result4 == "B")
+        #expect(result3 == "A")
+        #expect(result4 == "B")
 
         let calls2 = await loadCalls.wrappedValue
 
-        XCTAssertTrue(calls2.map { $0.sorted() } == [["A", "B"], ["A"]])
+        #expect(calls2.map { $0.sorted() } == [["A", "B"], ["A"]])
     }
 
     /// Clears all values in loader
-    func testClearsAllValuesInLoader() async throws {
+    @Test func clearsAllValuesInLoader() async throws {
         let loadCalls = Concurrent<[[String]]>([])
 
         let identityLoader = DataLoader<String, String>(
@@ -359,17 +360,17 @@ final class DataLoaderTests: XCTestCase {
             didFailWithError = error
         }
 
-        XCTAssertNil(didFailWithError)
+        #expect(didFailWithError == nil)
 
         let result1 = try await value1
         let result2 = try await value2
 
-        XCTAssertTrue(result1 == "A")
-        XCTAssertTrue(result2 == "B")
+        #expect(result1 == "A")
+        #expect(result2 == "B")
 
         let calls = await loadCalls.wrappedValue
 
-        XCTAssertTrue(calls.map { $0.sorted() } == [["A", "B"]])
+        #expect(calls.map { $0.sorted() } == [["A", "B"]])
 
         await identityLoader.clearAll()
 
@@ -386,21 +387,21 @@ final class DataLoaderTests: XCTestCase {
             didFailWithError2 = error
         }
 
-        XCTAssertNil(didFailWithError2)
+        #expect(didFailWithError2 == nil)
 
         let result3 = try await value3
         let result4 = try await value4
 
-        XCTAssertTrue(result3 == "A")
-        XCTAssertTrue(result4 == "B")
+        #expect(result3 == "A")
+        #expect(result4 == "B")
 
         let calls2 = await loadCalls.wrappedValue
 
-        XCTAssertTrue(calls2.map { $0.sorted() } == [["A", "B"], ["A", "B"]])
+        #expect(calls2.map { $0.sorted() } == [["A", "B"], ["A", "B"]])
     }
 
     /// Allows priming the cache
-    func testAllowsPrimingTheCache() async throws {
+    @Test func allowsPrimingTheCache() async throws {
         let loadCalls = Concurrent<[[String]]>([])
 
         let identityLoader = DataLoader<String, String>(
@@ -426,21 +427,21 @@ final class DataLoaderTests: XCTestCase {
             didFailWithError = error
         }
 
-        XCTAssertNil(didFailWithError)
+        #expect(didFailWithError == nil)
 
         let result1 = try await value1
         let result2 = try await value2
 
-        XCTAssertTrue(result1 == "A")
-        XCTAssertTrue(result2 == "B")
+        #expect(result1 == "A")
+        #expect(result2 == "B")
 
         let calls = await loadCalls.wrappedValue
 
-        XCTAssertTrue(calls.map { $0.sorted() } == [["B"]])
+        #expect(calls.map { $0.sorted() } == [["B"]])
     }
 
     /// Does not prime keys that already exist
-    func testDoesNotPrimeKeysThatAlreadyExist() async throws {
+    @Test func doesNotPrimeKeysThatAlreadyExist() async throws {
         let loadCalls = Concurrent<[[String]]>([])
 
         let identityLoader = DataLoader<String, String>(
@@ -466,13 +467,13 @@ final class DataLoaderTests: XCTestCase {
             didFailWithError = error
         }
 
-        XCTAssertNil(didFailWithError)
+        #expect(didFailWithError == nil)
 
         let result1 = try await value1
         let result2 = try await value2
 
-        XCTAssertTrue(result1 == "X")
-        XCTAssertTrue(result2 == "B")
+        #expect(result1 == "X")
+        #expect(result2 == "B")
 
         try await identityLoader.prime(key: "A", value: "Y")
         try await identityLoader.prime(key: "B", value: "Y")
@@ -490,21 +491,21 @@ final class DataLoaderTests: XCTestCase {
             didFailWithError2 = error
         }
 
-        XCTAssertNil(didFailWithError2)
+        #expect(didFailWithError2 == nil)
 
         let result3 = try await value3
         let result4 = try await value4
 
-        XCTAssertTrue(result3 == "X")
-        XCTAssertTrue(result4 == "B")
+        #expect(result3 == "X")
+        #expect(result4 == "B")
 
         let calls = await loadCalls.wrappedValue
 
-        XCTAssertTrue(calls.map { $0.sorted() } == [["B"]])
+        #expect(calls.map { $0.sorted() } == [["B"]])
     }
 
     /// Allows forcefully priming the cache
-    func testAllowsForcefullyPrimingTheCache() async throws {
+    @Test func allowsForcefullyPrimingTheCache() async throws {
         let loadCalls = Concurrent<[[String]]>([])
 
         let identityLoader = DataLoader<String, String>(
@@ -530,13 +531,13 @@ final class DataLoaderTests: XCTestCase {
             didFailWithError = error
         }
 
-        XCTAssertNil(didFailWithError)
+        #expect(didFailWithError == nil)
 
         let result1 = try await value1
         let result2 = try await value2
 
-        XCTAssertTrue(result1 == "X")
-        XCTAssertTrue(result2 == "B")
+        #expect(result1 == "X")
+        #expect(result2 == "B")
 
         try await identityLoader.clear(key: "A").prime(key: "A", value: "Y")
         try await identityLoader.clear(key: "B").prime(key: "B", value: "Y")
@@ -554,20 +555,20 @@ final class DataLoaderTests: XCTestCase {
             didFailWithError2 = error
         }
 
-        XCTAssertNil(didFailWithError2)
+        #expect(didFailWithError2 == nil)
 
         let result3 = try await value3
         let result4 = try await value4
 
-        XCTAssertTrue(result3 == "Y")
-        XCTAssertTrue(result4 == "Y")
+        #expect(result3 == "Y")
+        #expect(result4 == "Y")
 
         let calls = await loadCalls.wrappedValue
 
-        XCTAssertTrue(calls.map { $0.sorted() } == [["B"]])
+        #expect(calls.map { $0.sorted() } == [["B"]])
     }
 
-    func testAutoExecute() async throws {
+    @Test func autoExecute() async throws {
         let identityLoader = DataLoader<String, String>(
             options: DataLoaderOptions(executionPeriod: sleepConstant)
         ) { keys in
@@ -581,10 +582,10 @@ final class DataLoaderTests: XCTestCase {
 
         let result = try await value
 
-        XCTAssertNotNil(result)
+        #expect(result == "A")
     }
 
-    func testErrorResult() async throws {
+    @Test func errorResult() async throws {
         let loaderErrorMessage = "TEST"
 
         // Test throwing loader without auto-executing
@@ -606,7 +607,7 @@ final class DataLoaderTests: XCTestCase {
             didFailWithError = error as? DataLoaderError
         }
 
-        XCTAssertNil(didFailWithError)
+        #expect(didFailWithError == nil)
 
         var didFailWithError2: DataLoaderError?
 
@@ -627,7 +628,7 @@ final class DataLoaderTests: XCTestCase {
             break
         }
 
-        XCTAssertEqual(didFailWithErrorText2, loaderErrorMessage)
+        #expect(didFailWithErrorText2 == loaderErrorMessage)
 
         // Test throwing loader with auto-executing
         let throwLoaderAutoExecute = DataLoader<Int, Int>(
@@ -657,6 +658,6 @@ final class DataLoaderTests: XCTestCase {
             break
         }
 
-        XCTAssertEqual(didFailWithErrorText3, loaderErrorMessage)
+        #expect(didFailWithErrorText3 == loaderErrorMessage)
     }
 }

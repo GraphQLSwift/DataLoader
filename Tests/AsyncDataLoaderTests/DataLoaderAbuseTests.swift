@@ -1,10 +1,10 @@
-import XCTest
+import Testing
 
 @testable import AsyncDataLoader
 
 /// Provides descriptive error messages for API abuse
-class DataLoaderAbuseTests: XCTestCase {
-    func testFuntionWithNoValues() async throws {
+struct DataLoaderAbuseTests {
+    @Test func funtionWithNoValues() async throws {
         let identityLoader = DataLoader<Int, Int>(
             options: DataLoaderOptions(batchingEnabled: false)
         ) { _ in
@@ -21,10 +21,10 @@ class DataLoaderAbuseTests: XCTestCase {
             didFailWithError = error
         }
 
-        XCTAssertNotNil(didFailWithError)
+        #expect(didFailWithError != nil)
     }
 
-    func testBatchFuntionMustPromiseAnArrayOfCorrectLength() async {
+    @Test func batchFuntionMustPromiseAnArrayOfCorrectLength() async {
         let identityLoader = DataLoader<Int, Int> { _ in
             []
         }
@@ -39,10 +39,10 @@ class DataLoaderAbuseTests: XCTestCase {
             didFailWithError = error
         }
 
-        XCTAssertNotNil(didFailWithError)
+        #expect(didFailWithError != nil)
     }
 
-    func testBatchFuntionWithSomeValues() async throws {
+    @Test func batchFuntionWithSomeValues() async throws {
         let identityLoader = DataLoader<Int, Int> { keys in
             var results = [DataLoaderValue<Int>]()
 
@@ -68,14 +68,14 @@ class DataLoaderAbuseTests: XCTestCase {
             didFailWithError = error
         }
 
-        XCTAssertNotNil(didFailWithError)
+        #expect(didFailWithError != nil)
 
         let value = try await value1
 
-        XCTAssertTrue(value == 1)
+        #expect(value == 1)
     }
 
-    func testFuntionWithSomeValues() async throws {
+    @Test func funtionWithSomeValues() async throws {
         let identityLoader = DataLoader<Int, Int>(
             options: DataLoaderOptions(batchingEnabled: false)
         ) { keys in
@@ -103,11 +103,11 @@ class DataLoaderAbuseTests: XCTestCase {
             didFailWithError = error
         }
 
-        XCTAssertNotNil(didFailWithError)
+        #expect(didFailWithError != nil)
 
         let value = try await value1
 
-        XCTAssertTrue(value == 1)
+        #expect(value == 1)
     }
 }
 
