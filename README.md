@@ -250,10 +250,11 @@ When reporting an issue, please add a detailed example, and if possible a code s
 
 When creating a pull request, please adhere to the current coding style where possible, and create tests with your code so it keeps providing an awesome test coverage level 💪
 
-This repo uses [SwiftFormat](https://github.com/nicklockwood/SwiftFormat), and includes lint checks to enforce these formatting standards. To format your code, install `swiftformat` and run:
+This repo uses the standard [swift format](https://github.com/swiftlang/swift-format), and includes lint checks to enforce these formatting standards.
+To format your code, run:
 
 ```bash
-swiftformat .
+swift format --parallel --in-place --recursive ./
 ```
 
 ## Acknowledgements 👏
