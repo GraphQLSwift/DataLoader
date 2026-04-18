@@ -1,15 +1,6 @@
 {
-  "originHash" : "34ed11cdeebef1b2864a6db79a150ffe000d97cca7e36c30e30939d14f609619",
+  "originHash" : "cd234e013443e6dda35a41eb3c534540f5fa8abb6b1146f8037e768f237caa39",
   "pins" : [
-    {
-      "identity" : "async-collections",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/adam-fowler/async-collections",
-      "state" : {
-        "revision" : "726af96095a19df6b8053ddbaed0a727aa70ccb2",
-        "version" : "0.1.0"
-      }
-    },
     {
       "identity" : "swift-algorithms",
       "kind" : "remoteSourceControl",
