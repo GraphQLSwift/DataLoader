@@ -51,6 +51,8 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
             queue.append((key: key, channel: channel))
 
             if let executionPeriod = options.executionPeriod, !dispatchScheduled {
+                // This task must be detached in order to fulfill potential other keys
+                // even if the originally triggering key is cancelled.
                 Task.detached {
                     try await Task.sleep(nanoseconds: executionPeriod)
                     try await self.execute()
@@ -59,7 +61,7 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
                 dispatchScheduled = true
             }
         } else {
-            Task.detached {
+            Task {
                 do {
                     let results = try await self.batchLoadFunction([key])
 
@@ -158,11 +160,7 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
 
         if cache[cacheKey] == nil {
             let channel = Channel<Value, Error>()
-
-            Task.detached {
-                await channel.fulfill(value)
-            }
-
+            await channel.fulfill(value)
             cache[cacheKey] = channel
         }
 
