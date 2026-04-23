@@ -12,6 +12,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-algorithms.git", from: "1.0.0"),
+        .package(url: "https://github.com/adam-fowler/async-collections", from: "0.0.1"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.84.0"),
     ],
     targets: [
@@ -26,6 +27,7 @@ let package = Package(
             name: "AsyncDataLoader",
             dependencies: [
                 .product(name: "Algorithms", package: "swift-algorithms"),
+                .product(name: "AsyncCollections", package: "async-collections"),
             ]
         ),
         .testTarget(

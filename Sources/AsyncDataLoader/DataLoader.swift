@@ -1,4 +1,5 @@
 import Algorithms
+import AsyncCollections
 
 public enum DataLoaderValue<T: Sendable>: Sendable {
     case success(T)
@@ -116,19 +117,7 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
             return []
         }
 
-        // This buffer pointer allows us to initialize a pre-sized non-nullable list
-        // that we can populate by index as `load` results stream in asyncronously
-        let buffer = UnsafeMutableBufferPointer<Value>.allocate(capacity: keys.count)
-        try await withThrowingTaskGroup { group in
-            for (index, element) in keys.enumerated() {
-                group.addTask {
-                    let result = try await self.load(key: element)
-                    buffer[index] = result
-                }
-            }
-            try await group.waitForAll()
-        }
-        return Array(buffer)
+        return try await keys.concurrentMap { try await self.load(key: $0) }
     }
 
     /// Clears the value at `key` from the cache, if it exists. Returns itself for
@@ -184,7 +173,7 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
         // If a maxBatchSize was provided and the queue is longer, then segment the
         // queue into multiple batches, otherwise treat the queue as a single batch.
         if let maxBatchSize = options.maxBatchSize, maxBatchSize > 0, maxBatchSize < batch.count {
-            for slicedBatch in batch.chunks(ofCount: maxBatchSize) {
+            try await batch.chunks(ofCount: maxBatchSize).asyncForEach { slicedBatch in
                 try await self.executeBatch(batch: Array(slicedBatch))
             }
         } else {
