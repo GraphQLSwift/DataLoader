@@ -1,6 +1,14 @@
 {
-  "originHash" : "291df3327aad87228cf28f3cc39ec8b92e332c285db9b81b29cb92cb71d46837",
   "pins" : [
+    {
+      "identity" : "async-collections",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/adam-fowler/async-collections",
+      "state" : {
+        "revision" : "726af96095a19df6b8053ddbaed0a727aa70ccb2",
+        "version" : "0.1.0"
+      }
+    },
     {
       "identity" : "hdrhistogram-swift",
       "kind" : "remoteSourceControl",
@@ -101,5 +109,5 @@
       }
     }
   ],
-  "version" : 3
+  "version" : 2
 }
