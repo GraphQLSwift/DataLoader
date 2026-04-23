@@ -173,7 +173,7 @@ public actor DataLoader<Key: Hashable & Sendable, Value: Sendable> {
         // If a maxBatchSize was provided and the queue is longer, then segment the
         // queue into multiple batches, otherwise treat the queue as a single batch.
         if let maxBatchSize = options.maxBatchSize, maxBatchSize > 0, maxBatchSize < batch.count {
-            try await batch.chunks(ofCount: maxBatchSize).asyncForEach { slicedBatch in
+            for slicedBatch in batch.chunks(ofCount: maxBatchSize) {
                 try await self.executeBatch(batch: Array(slicedBatch))
             }
         } else {
